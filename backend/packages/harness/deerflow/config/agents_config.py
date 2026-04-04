@@ -1,7 +1,9 @@
 """Configuration and loaders for custom agents."""
 
+import json
 import logging
 import re
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -12,6 +14,7 @@ from deerflow.config.paths import get_paths
 logger = logging.getLogger(__name__)
 
 SOUL_FILENAME = "SOUL.md"
+METADATA_FILENAME = "metadata.json"
 AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9-]+$")
 
 
@@ -123,3 +126,54 @@ def list_custom_agents() -> list[AgentConfig]:
             logger.warning(f"Skipping agent '{entry.name}': {e}")
 
     return agents
+
+
+def get_agent_owner(agent_name: str) -> str | None:
+    """Read the user_id from an agent's metadata.json.
+
+    Returns None if metadata.json doesn't exist or user_id is not set.
+    """
+    agent_dir = get_paths().agent_dir(agent_name)
+    meta_file = agent_dir / METADATA_FILENAME
+    if not meta_file.exists():
+        return None
+    try:
+        meta = json.loads(meta_file.read_text(encoding="utf-8"))
+        return meta.get("user_id")
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def filter_agents_by_user(
+    agents: list[AgentConfig],
+    user_id: str | None = None,
+) -> list[AgentConfig]:
+    """Filter agents to only include those belonging to the specified user.
+
+    In multi-tenant mode, this ensures users can only see their own agents.
+    In single-tenant mode, all agents are visible.
+
+    Args:
+        agents: List of AgentConfig objects
+        user_id: Optional user ID to filter by (from JWT token)
+
+    Returns:
+        Filtered list of agents belonging to the user
+    """
+    from deerflow.config.multi_tenant_config import get_multi_tenant_config
+
+    config = get_multi_tenant_config()
+    if not config.enabled:
+        return agents
+
+    if user_id is None:
+        user_id = config.default_user_id
+
+    filtered: list[AgentConfig] = []
+    for agent in agents:
+        owner = get_agent_owner(agent.name)
+        # In multi-tenant mode, only show agents owned by the current user
+        if owner == user_id:
+            filtered.append(agent)
+
+    return filtered

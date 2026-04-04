@@ -196,11 +196,21 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
 
         # Queue the filtered conversation for memory update
         correction_detected = detect_correction(filtered_messages)
+
+        # Extract user_id from thread metadata for multi-tenant memory isolation
+        user_id = None
+        configurable = runtime.context.get("configurable", {})
+        if isinstance(configurable, dict):
+            metadata = configurable.get("metadata", {})
+            if isinstance(metadata, dict):
+                user_id = metadata.get("user_id")
+
         queue = get_memory_queue()
         queue.add(
             thread_id=thread_id,
             messages=filtered_messages,
             agent_name=self._agent_name,
+            user_id=user_id,
             correction_detected=correction_detected,
         )
 

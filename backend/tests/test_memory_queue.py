@@ -46,5 +46,6 @@ def test_process_queue_forwards_correction_flag_to_updater() -> None:
         messages=["conversation"],
         thread_id="thread-1",
         agent_name="lead_agent",
+        user_id=None,
         correction_detected=True,
     )

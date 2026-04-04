@@ -4,9 +4,12 @@ import logging
 import os
 import stat
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
+from app.gateway.deps import get_store
+from app.gateway.middleware.user_context import get_user_id_from_request
+from app.gateway.routers.threads import _check_thread_ownership, _store_get
 from deerflow.config.paths import get_paths
 from deerflow.sandbox.sandbox_provider import get_sandbox_provider
 from deerflow.uploads.manager import (
@@ -56,9 +59,15 @@ def _make_file_sandbox_writable(file_path: os.PathLike[str] | str) -> None:
 @router.post("", response_model=UploadResponse)
 async def upload_files(
     thread_id: str,
+    request: Request,
     files: list[UploadFile] = File(...),
 ) -> UploadResponse:
     """Upload multiple files to a thread's uploads directory."""
+    # Verify thread ownership
+    store = get_store(request)
+    record = await _store_get(store, thread_id) if store else None
+    _check_thread_ownership(request, thread_id, record)
+
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
 
@@ -133,8 +142,13 @@ async def upload_files(
 
 
 @router.get("/list", response_model=dict)
-async def list_uploaded_files(thread_id: str) -> dict:
+async def list_uploaded_files(thread_id: str, request: Request) -> dict:
     """List all files in a thread's uploads directory."""
+    # Verify thread ownership
+    store = get_store(request)
+    record = await _store_get(store, thread_id) if store else None
+    _check_thread_ownership(request, thread_id, record)
+
     try:
         uploads_dir = get_uploads_dir(thread_id)
     except ValueError as e:
@@ -151,8 +165,13 @@ async def list_uploaded_files(thread_id: str) -> dict:
 
 
 @router.delete("/{filename}")
-async def delete_uploaded_file(thread_id: str, filename: str) -> dict:
+async def delete_uploaded_file(thread_id: str, filename: str, request: Request) -> dict:
     """Delete a file from a thread's uploads directory."""
+    # Verify thread ownership
+    store = get_store(request)
+    record = await _store_get(store, thread_id) if store else None
+    _check_thread_ownership(request, thread_id, record)
+
     try:
         uploads_dir = get_uploads_dir(thread_id)
     except ValueError as e:

@@ -20,6 +20,7 @@ class ConversationContext:
     messages: list[Any]
     timestamp: datetime = field(default_factory=datetime.utcnow)
     agent_name: str | None = None
+    user_id: str | None = None
     correction_detected: bool = False
 
 
@@ -43,6 +44,7 @@ class MemoryUpdateQueue:
         thread_id: str,
         messages: list[Any],
         agent_name: str | None = None,
+        user_id: str | None = None,
         correction_detected: bool = False,
     ) -> None:
         """Add a conversation to the update queue.
@@ -51,6 +53,7 @@ class MemoryUpdateQueue:
             thread_id: The thread ID.
             messages: The conversation messages.
             agent_name: If provided, memory is stored per-agent. If None, uses global memory.
+            user_id: If provided, memory is stored per-user. If None, uses global memory.
             correction_detected: Whether recent turns include an explicit correction signal.
         """
         config = get_memory_config()
@@ -67,6 +70,7 @@ class MemoryUpdateQueue:
                 thread_id=thread_id,
                 messages=messages,
                 agent_name=agent_name,
+                user_id=user_id,
                 correction_detected=merged_correction_detected,
             )
 
@@ -129,6 +133,7 @@ class MemoryUpdateQueue:
                         messages=context.messages,
                         thread_id=context.thread_id,
                         agent_name=context.agent_name,
+                        user_id=context.user_id,
                         correction_detected=context.correction_detected,
                     )
                     if success:

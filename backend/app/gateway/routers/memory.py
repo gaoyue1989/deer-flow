@@ -1,8 +1,9 @@
-"""Memory API router for retrieving and managing global memory data."""
+"""Memory API router for retrieving and managing per-user memory data."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from app.gateway.middleware.user_context import get_user_id_from_request
 from deerflow.agents.memory.updater import (
     clear_memory_data,
     create_memory_fact,
@@ -111,43 +112,16 @@ class MemoryStatusResponse(BaseModel):
     response_model=MemoryResponse,
     response_model_exclude_none=True,
     summary="Get Memory Data",
-    description="Retrieve the current global memory data including user context, history, and facts.",
+    description="Retrieve the current memory data including user context, history, and facts.",
 )
-async def get_memory() -> MemoryResponse:
-    """Get the current global memory data.
+async def get_memory(request: Request) -> MemoryResponse:
+    """Get the current memory data for the authenticated user.
 
     Returns:
         The current memory data with user context, history, and facts.
-
-    Example Response:
-        ```json
-        {
-            "version": "1.0",
-            "lastUpdated": "2024-01-15T10:30:00Z",
-            "user": {
-                "workContext": {"summary": "Working on DeerFlow project", "updatedAt": "..."},
-                "personalContext": {"summary": "Prefers concise responses", "updatedAt": "..."},
-                "topOfMind": {"summary": "Building memory API", "updatedAt": "..."}
-            },
-            "history": {
-                "recentMonths": {"summary": "Recent development activities", "updatedAt": "..."},
-                "earlierContext": {"summary": "", "updatedAt": ""},
-                "longTermBackground": {"summary": "", "updatedAt": ""}
-            },
-            "facts": [
-                {
-                    "id": "fact_abc123",
-                    "content": "User prefers TypeScript over JavaScript",
-                    "category": "preference",
-                    "confidence": 0.9,
-                    "createdAt": "2024-01-15T10:30:00Z",
-                    "source": "thread_xyz"
-                }
-            ]
-        }
-        ```
     """
-    memory_data = get_memory_data()
+    user_id = get_user_id_from_request(request)
+    memory_data = get_memory_data(user_id=user_id)
     return MemoryResponse(**memory_data)
 
 
@@ -158,7 +132,7 @@ async def get_memory() -> MemoryResponse:
     summary="Reload Memory Data",
     description="Reload memory data from the storage file, refreshing the in-memory cache.",
 )
-async def reload_memory() -> MemoryResponse:
+async def reload_memory(request: Request) -> MemoryResponse:
     """Reload memory data from file.
 
     This forces a reload of the memory data from the storage file,
@@ -167,7 +141,8 @@ async def reload_memory() -> MemoryResponse:
     Returns:
         The reloaded memory data.
     """
-    memory_data = reload_memory_data()
+    user_id = get_user_id_from_request(request)
+    memory_data = reload_memory_data(user_id=user_id)
     return MemoryResponse(**memory_data)
 
 
@@ -178,10 +153,11 @@ async def reload_memory() -> MemoryResponse:
     summary="Clear All Memory Data",
     description="Delete all saved memory data and reset the memory structure to an empty state.",
 )
-async def clear_memory() -> MemoryResponse:
-    """Clear all persisted memory data."""
+async def clear_memory(request: Request) -> MemoryResponse:
+    """Clear all persisted memory data for the authenticated user."""
+    user_id = get_user_id_from_request(request)
     try:
-        memory_data = clear_memory_data()
+        memory_data = clear_memory_data(user_id=user_id)
     except OSError as exc:
         raise HTTPException(status_code=500, detail="Failed to clear memory data.") from exc
 
@@ -195,13 +171,15 @@ async def clear_memory() -> MemoryResponse:
     summary="Create Memory Fact",
     description="Create a single saved memory fact manually.",
 )
-async def create_memory_fact_endpoint(request: FactCreateRequest) -> MemoryResponse:
+async def create_memory_fact_endpoint(request: Request, req: FactCreateRequest) -> MemoryResponse:
     """Create a single fact manually."""
+    user_id = get_user_id_from_request(request)
     try:
         memory_data = create_memory_fact(
-            content=request.content,
-            category=request.category,
-            confidence=request.confidence,
+            content=req.content,
+            category=req.category,
+            confidence=req.confidence,
+            user_id=user_id,
         )
     except ValueError as exc:
         raise _map_memory_fact_value_error(exc) from exc
@@ -218,10 +196,11 @@ async def create_memory_fact_endpoint(request: FactCreateRequest) -> MemoryRespo
     summary="Delete Memory Fact",
     description="Delete a single saved memory fact by its fact id.",
 )
-async def delete_memory_fact_endpoint(fact_id: str) -> MemoryResponse:
+async def delete_memory_fact_endpoint(request: Request, fact_id: str) -> MemoryResponse:
     """Delete a single fact from memory by fact id."""
+    user_id = get_user_id_from_request(request)
     try:
-        memory_data = delete_memory_fact(fact_id)
+        memory_data = delete_memory_fact(fact_id, user_id=user_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f"Memory fact '{fact_id}' not found.") from exc
     except OSError as exc:
@@ -237,14 +216,16 @@ async def delete_memory_fact_endpoint(fact_id: str) -> MemoryResponse:
     summary="Patch Memory Fact",
     description="Partially update a single saved memory fact by its fact id while preserving omitted fields.",
 )
-async def update_memory_fact_endpoint(fact_id: str, request: FactPatchRequest) -> MemoryResponse:
+async def update_memory_fact_endpoint(request: Request, fact_id: str, req: FactPatchRequest) -> MemoryResponse:
     """Partially update a single fact manually."""
+    user_id = get_user_id_from_request(request)
     try:
         memory_data = update_memory_fact(
             fact_id=fact_id,
-            content=request.content,
-            category=request.category,
-            confidence=request.confidence,
+            content=req.content,
+            category=req.category,
+            confidence=req.confidence,
+            user_id=user_id,
         )
     except ValueError as exc:
         raise _map_memory_fact_value_error(exc) from exc
@@ -261,11 +242,12 @@ async def update_memory_fact_endpoint(fact_id: str, request: FactPatchRequest) -
     response_model=MemoryResponse,
     response_model_exclude_none=True,
     summary="Export Memory Data",
-    description="Export the current global memory data as JSON for backup or transfer.",
+    description="Export the current memory data as JSON for backup or transfer.",
 )
-async def export_memory() -> MemoryResponse:
+async def export_memory(request: Request) -> MemoryResponse:
     """Export the current memory data."""
-    memory_data = get_memory_data()
+    user_id = get_user_id_from_request(request)
+    memory_data = get_memory_data(user_id=user_id)
     return MemoryResponse(**memory_data)
 
 
@@ -274,12 +256,13 @@ async def export_memory() -> MemoryResponse:
     response_model=MemoryResponse,
     response_model_exclude_none=True,
     summary="Import Memory Data",
-    description="Import and overwrite the current global memory data from a JSON payload.",
+    description="Import and overwrite the current memory data from a JSON payload.",
 )
-async def import_memory(request: MemoryResponse) -> MemoryResponse:
+async def import_memory(request: Request, req: MemoryResponse) -> MemoryResponse:
     """Import and persist memory data."""
+    user_id = get_user_id_from_request(request)
     try:
-        memory_data = import_memory_data(request.model_dump())
+        memory_data = import_memory_data(req.model_dump(), user_id=user_id)
     except OSError as exc:
         raise HTTPException(status_code=500, detail="Failed to import memory data.") from exc
 
@@ -330,14 +313,15 @@ async def get_memory_config_endpoint() -> MemoryConfigResponse:
     summary="Get Memory Status",
     description="Retrieve both memory configuration and current data in a single request.",
 )
-async def get_memory_status() -> MemoryStatusResponse:
+async def get_memory_status(request: Request) -> MemoryStatusResponse:
     """Get the memory system status including configuration and data.
 
     Returns:
         Combined memory configuration and current data.
     """
+    user_id = get_user_id_from_request(request)
     config = get_memory_config()
-    memory_data = get_memory_data()
+    memory_data = get_memory_data(user_id=user_id)
 
     return MemoryStatusResponse(
         config=MemoryConfigResponse(

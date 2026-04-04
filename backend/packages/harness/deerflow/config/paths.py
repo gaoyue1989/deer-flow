@@ -134,6 +134,20 @@ class Paths:
         """Per-agent memory file: `{base_dir}/agents/{name}/memory.json`."""
         return self.agent_dir(name) / "memory.json"
 
+    def user_profile_dir(self) -> Path:
+        """Directory for per-user profiles: `{base_dir}/user_profiles/`."""
+        return self.base_dir / "user_profiles"
+
+    def user_md_file(self, user_id: str | None = None) -> Path:
+        """Path to the user profile file.
+
+        If user_id is provided, returns per-user profile path.
+        Otherwise returns the legacy global USER.md path.
+        """
+        if user_id:
+            return self.user_profile_dir() / f"user_{user_id}.md"
+        return self.base_dir / "USER.md"
+
     def thread_dir(self, thread_id: str) -> Path:
         """
         Host path for a thread's data: `{base_dir}/threads/{thread_id}/`

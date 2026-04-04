@@ -7,7 +7,10 @@ from urllib.parse import quote
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 
+from app.gateway.deps import get_store
+from app.gateway.middleware.user_context import get_user_id_from_request
 from app.gateway.path_utils import resolve_thread_virtual_path
+from app.gateway.routers.threads import _check_thread_ownership, _store_get
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +117,11 @@ async def get_artifact(thread_id: str, path: str, request: Request, download: bo
         - Download file: `/api/threads/abc123/artifacts/mnt/user-data/outputs/data.csv?download=true`
         - Active web content such as `.html`, `.xhtml`, and `.svg` artifacts is always downloaded
     """
+    # Verify thread ownership
+    store = get_store(request)
+    record = await _store_get(store, thread_id) if store else None
+    _check_thread_ownership(request, thread_id, record)
+
     # Check if this is a request for a file inside a .skill archive (e.g., xxx.skill/SKILL.md)
     if ".skill/" in path:
         # Split the path at ".skill/" to get the ZIP file path and internal path

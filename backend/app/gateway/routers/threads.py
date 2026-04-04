@@ -21,6 +21,8 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.gateway.deps import get_checkpointer, get_store
+from app.gateway.middleware.user_context import get_user_id_from_request
+from deerflow.agents.thread_metadata import filter_threads_by_user, get_thread_metadata
 from deerflow.config.paths import Paths, get_paths
 from deerflow.runtime import serialize_channel_values
 
@@ -209,6 +211,38 @@ def _derive_thread_status(checkpoint_tuple) -> str:
     return "idle"
 
 
+def _check_thread_ownership(request: Request, thread_id: str, record: dict | None) -> str:
+    """Verify thread ownership and return the current user_id.
+
+    Raises HTTP 403 if the thread belongs to another user.
+    Backward compatible: threads without user_id metadata are accessible to all.
+
+    Args:
+        request: FastAPI request object
+        thread_id: Thread identifier
+        record: Thread record from Store (may be None)
+
+    Returns:
+        Current user_id for downstream use
+
+    Raises:
+        HTTPException: 403 if thread belongs to another user
+    """
+    user_id = get_user_id_from_request(request)
+    metadata = record.get("metadata", {}) if record else {}
+    thread_user_id = metadata.get("user_id")
+
+    # Legacy thread without user_id: allow access (backward compatibility)
+    if thread_user_id is None:
+        return user_id or "default"
+
+    # Thread has ownership: verify it matches the current user
+    if user_id and thread_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Access denied: thread belongs to another user")
+
+    return thread_user_id
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -221,11 +255,15 @@ async def delete_thread_data(thread_id: str, request: Request) -> ThreadDeleteRe
     Cleans DeerFlow-managed thread directories, removes checkpoint data,
     and removes the thread record from the Store.
     """
+    # Verify ownership before deletion
+    store = get_store(request)
+    record = await _store_get(store, thread_id) if store else None
+    _check_thread_ownership(request, thread_id, record)
+
     # Clean local filesystem
     response = _delete_thread_data(thread_id)
 
     # Remove from Store (best-effort)
-    store = get_store(request)
     if store is not None:
         try:
             await store.adelete(THREADS_NS, thread_id)
@@ -257,6 +295,10 @@ async def create_thread(body: ThreadCreateRequest, request: Request) -> ThreadRe
     thread_id = body.thread_id or str(uuid.uuid4())
     now = time.time()
 
+    # Inject user_id into thread metadata for multi-tenant isolation
+    user_id = get_user_id_from_request(request)
+    thread_metadata = {**body.metadata, **get_thread_metadata(user_id)}
+
     # Idempotency: return existing record from Store when already present
     if store is not None:
         existing_record = await _store_get(store, thread_id)
@@ -279,7 +321,7 @@ async def create_thread(body: ThreadCreateRequest, request: Request) -> ThreadRe
                     "status": "idle",
                     "created_at": now,
                     "updated_at": now,
-                    "metadata": body.metadata,
+                    "metadata": thread_metadata,
                 },
             )
         except Exception:
@@ -296,7 +338,7 @@ async def create_thread(body: ThreadCreateRequest, request: Request) -> ThreadRe
             "source": "input",
             "writes": None,
             "parents": {},
-            **body.metadata,
+            **thread_metadata,
             "created_at": now,
         }
         await checkpointer.aput(config, empty_checkpoint(), ckpt_metadata, {})
@@ -304,13 +346,13 @@ async def create_thread(body: ThreadCreateRequest, request: Request) -> ThreadRe
         logger.exception("Failed to create checkpoint for thread %s", thread_id)
         raise HTTPException(status_code=500, detail="Failed to create thread")
 
-    logger.info("Thread created: %s", thread_id)
+    logger.info("Thread created: %s (user_id=%s)", thread_id, thread_metadata.get("user_id"))
     return ThreadResponse(
         thread_id=thread_id,
         status="idle",
         created_at=str(now),
         updated_at=str(now),
-        metadata=body.metadata,
+        metadata=thread_metadata,
     )
 
 
@@ -409,6 +451,20 @@ async def search_threads(body: ThreadSearchRequest, request: Request) -> list[Th
     # -----------------------------------------------------------------------
     results = list(merged.values())
 
+    # Filter by user (multi-tenant isolation)
+    user_id = get_user_id_from_request(request)
+    from deerflow.agents.thread_metadata import get_user_id_from_metadata
+
+    config_enabled = True  # multi-tenant is enabled in config
+    if config_enabled and user_id is not None:
+        results = [r for r in results if get_user_id_from_metadata(r.metadata) == user_id]
+    elif config_enabled:
+        from deerflow.config.multi_tenant_config import get_multi_tenant_config
+
+        default_uid = get_multi_tenant_config().default_user_id
+        results = [r for r in results if get_user_id_from_metadata(r.metadata) == default_uid]
+
+    # Apply user-provided metadata filter
     if body.metadata:
         results = [r for r in results if all(r.metadata.get(k) == v for k, v in body.metadata.items())]
 
@@ -430,9 +486,14 @@ async def patch_thread(thread_id: str, body: ThreadPatchRequest, request: Reques
     if record is None:
         raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found")
 
+    # Verify ownership
+    _check_thread_ownership(request, thread_id, record)
+
     now = time.time()
     updated = dict(record)
-    updated.setdefault("metadata", {}).update(body.metadata)
+    # Prevent users from tampering with user_id
+    safe_metadata = {k: v for k, v in body.metadata.items() if k != "user_id"}
+    updated.setdefault("metadata", {}).update(safe_metadata)
     updated["updated_at"] = now
 
     try:
@@ -491,6 +552,9 @@ async def get_thread(thread_id: str, request: Request) -> ThreadResponse:
     if record is None:
         raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found")
 
+    # Verify ownership
+    _check_thread_ownership(request, thread_id, record)
+
     status = _derive_thread_status(checkpoint_tuple) if checkpoint_tuple is not None else record.get("status", "idle")
     checkpoint = getattr(checkpoint_tuple, "checkpoint", {}) or {} if checkpoint_tuple is not None else {}
     channel_values = checkpoint.get("channel_values", {})
@@ -512,6 +576,12 @@ async def get_thread_state(thread_id: str, request: Request) -> ThreadStateRespo
     Channel values are serialized to ensure LangChain message objects
     are converted to JSON-safe dicts.
     """
+    store = get_store(request)
+    record = await _store_get(store, thread_id) if store else None
+
+    # Verify ownership
+    _check_thread_ownership(request, thread_id, record)
+
     checkpointer = get_checkpointer(request)
 
     config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
@@ -562,8 +632,13 @@ async def update_thread_state(thread_id: str, body: ThreadStateUpdateRequest, re
     channel values, then syncs any updated ``title`` field back to the Store
     so that ``/threads/search`` reflects the change immediately.
     """
-    checkpointer = get_checkpointer(request)
     store = get_store(request)
+    record = await _store_get(store, thread_id) if store else None
+
+    # Verify ownership
+    _check_thread_ownership(request, thread_id, record)
+
+    checkpointer = get_checkpointer(request)
 
     # checkpoint_ns must be present in the config for aput — default to ""
     # (the root graph namespace).  checkpoint_id is optional; omitting it
@@ -640,6 +715,12 @@ async def update_thread_state(thread_id: str, body: ThreadStateUpdateRequest, re
 @router.post("/{thread_id}/history", response_model=list[HistoryEntry])
 async def get_thread_history(thread_id: str, body: ThreadHistoryRequest, request: Request) -> list[HistoryEntry]:
     """Get checkpoint history for a thread."""
+    store = get_store(request)
+    record = await _store_get(store, thread_id) if store else None
+
+    # Verify ownership
+    _check_thread_ownership(request, thread_id, record)
+
     checkpointer = get_checkpointer(request)
 
     config: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
