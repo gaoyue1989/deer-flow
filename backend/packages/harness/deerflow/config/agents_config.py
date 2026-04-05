@@ -172,8 +172,8 @@ def filter_agents_by_user(
     filtered: list[AgentConfig] = []
     for agent in agents:
         owner = get_agent_owner(agent.name)
-        # In multi-tenant mode, only show agents owned by the current user
-        if owner == user_id:
+        # Agents without ownership metadata are visible to all users (backward compat)
+        if owner is None or owner == user_id:
             filtered.append(agent)
 
     return filtered
