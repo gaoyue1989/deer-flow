@@ -200,6 +200,9 @@ This gateway provides custom endpoints for models, MCP configuration, skills, an
     # Thread cleanup API is mounted at /api/threads/{thread_id}
     app.include_router(threads.router)
 
+    # Thread runs API (langgraph-compat) at /api/threads/{thread_id}/runs/stream
+    app.include_router(thread_runs.router)
+
     # Agents API is mounted at /api/agents
     app.include_router(agents.router)
 
