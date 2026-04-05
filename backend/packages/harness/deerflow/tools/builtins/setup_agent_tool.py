@@ -1,4 +1,6 @@
+import json
 import logging
+import time
 
 import yaml
 from langchain_core.messages import ToolMessage
@@ -26,6 +28,13 @@ def setup_agent(
 
     agent_name: str | None = runtime.context.get("agent_name") if runtime.context else None
 
+    # Extract user_id from runtime context for multi-tenant agent ownership
+    user_id: str | None = None
+    if runtime.context:
+        configurable = runtime.context.get("configurable", {})
+        metadata = configurable.get("metadata", {})
+        user_id = metadata.get("user_id")
+
     try:
         paths = get_paths()
         agent_dir = paths.agent_dir(agent_name) if agent_name else paths.base_dir
@@ -41,10 +50,18 @@ def setup_agent(
             with open(config_file, "w", encoding="utf-8") as f:
                 yaml.dump(config_data, f, default_flow_style=False, allow_unicode=True)
 
+            # Write metadata.json for multi-tenant ownership tracking
+            if user_id:
+                meta_file = agent_dir / "metadata.json"
+                meta_file.write_text(
+                    json.dumps({"user_id": user_id, "created_at": time.time()}, indent=2),
+                    encoding="utf-8",
+                )
+
         soul_file = agent_dir / "SOUL.md"
         soul_file.write_text(soul, encoding="utf-8")
 
-        logger.info(f"[agent_creator] Created agent '{agent_name}' at {agent_dir}")
+        logger.info(f"[agent_creator] Created agent '{agent_name}' at {agent_dir} (user_id={user_id})")
         return Command(
             update={
                 "created_agent_name": agent_name,
