@@ -15,6 +15,8 @@ import { useI18n } from "@/core/i18n/hooks";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
+import { UserMenu } from "./user-menu";
+
 export function WorkspaceHeader({ className }: { className?: string }) {
   const { t } = useI18n();
   const { state } = useSidebar();
@@ -45,7 +47,10 @@ export function WorkspaceHeader({ className }: { className?: string }) {
                 DeerFlow
               </div>
             )}
-            <SidebarTrigger />
+            <div className="flex items-center gap-2">
+              <SidebarTrigger />
+              <UserMenu />
+            </div>
           </div>
         )}
       </div>

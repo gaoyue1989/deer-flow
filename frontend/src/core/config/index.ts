@@ -38,3 +38,18 @@ export function getLangGraphBaseURL(isMock?: boolean) {
     return "http://localhost:2026/api/langgraph";
   }
 }
+
+const TOKEN_KEY = "deerflow_auth_token";
+
+export function getAuthHeaders(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+}
+
+export function mergeAuthHeaders(
+  headers?: Record<string, string>,
+): Record<string, string> {
+  return { ...getAuthHeaders(), ...headers };
+}

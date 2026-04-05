@@ -432,4 +432,24 @@ export const zhCN: Translations = {
       emptyDescription: "相关的致谢信息会展示在这里。",
     },
   },
+
+  // Auth
+  auth: {
+    signIn: "登录",
+    signOut: "退出登录",
+    register: "注册",
+    login: "登录",
+    email: "邮箱",
+    password: "密码",
+    emailPlaceholder: "you@example.com",
+    passwordPlaceholder: "请输入密码",
+    noAccount: "还没有账号？",
+    hasAccount: "已有账号？",
+    registerSuccess: "注册成功！",
+    loginSuccess: "登录成功！",
+    logoutSuccess: "已退出登录。",
+    loginFailed: "登录失败。",
+    registerFailed: "注册失败。",
+    passwordTooShort: "密码至少需要 8 个字符。",
+  },
 };

@@ -1,5 +1,6 @@
 import type { BaseStream } from "@langchain/langgraph-sdk/react";
 
+import { mergeAuthHeaders } from "../config";
 import type { AgentThreadState } from "../threads";
 
 import { urlOfArtifact } from "./utils";
@@ -18,7 +19,9 @@ export async function loadArtifactContent({
     enhancedFilepath = filepath + "/SKILL.md";
   }
   const url = urlOfArtifact({ filepath: enhancedFilepath, threadId, isMock });
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: mergeAuthHeaders(),
+  });
   const text = await response.text();
   return { content: text, url };
 }

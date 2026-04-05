@@ -1,4 +1,4 @@
-import { getBackendBaseURL } from "@/core/config";
+import { getBackendBaseURL, mergeAuthHeaders } from "@/core/config";
 
 import type { Agent, CreateAgentRequest, UpdateAgentRequest } from "./types";
 
@@ -15,14 +15,18 @@ export class AgentNameCheckError extends Error {
 }
 
 export async function listAgents(): Promise<Agent[]> {
-  const res = await fetch(`${getBackendBaseURL()}/api/agents`);
+  const res = await fetch(`${getBackendBaseURL()}/api/agents`, {
+    headers: mergeAuthHeaders(),
+  });
   if (!res.ok) throw new Error(`Failed to load agents: ${res.statusText}`);
   const data = (await res.json()) as { agents: Agent[] };
   return data.agents;
 }
 
 export async function getAgent(name: string): Promise<Agent> {
-  const res = await fetch(`${getBackendBaseURL()}/api/agents/${name}`);
+  const res = await fetch(`${getBackendBaseURL()}/api/agents/${name}`, {
+    headers: mergeAuthHeaders(),
+  });
   if (!res.ok) throw new Error(`Agent '${name}' not found`);
   return res.json() as Promise<Agent>;
 }
@@ -30,7 +34,7 @@ export async function getAgent(name: string): Promise<Agent> {
 export async function createAgent(request: CreateAgentRequest): Promise<Agent> {
   const res = await fetch(`${getBackendBaseURL()}/api/agents`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: mergeAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(request),
   });
   if (!res.ok) {
@@ -46,7 +50,7 @@ export async function updateAgent(
 ): Promise<Agent> {
   const res = await fetch(`${getBackendBaseURL()}/api/agents/${name}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: mergeAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(request),
   });
   if (!res.ok) {
@@ -59,6 +63,7 @@ export async function updateAgent(
 export async function deleteAgent(name: string): Promise<void> {
   const res = await fetch(`${getBackendBaseURL()}/api/agents/${name}`, {
     method: "DELETE",
+    headers: mergeAuthHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to delete agent: ${res.statusText}`);
 }
@@ -70,6 +75,9 @@ export async function checkAgentName(
   try {
     res = await fetch(
       `${getBackendBaseURL()}/api/agents/check?name=${encodeURIComponent(name)}`,
+      {
+        headers: mergeAuthHeaders(),
+      },
     );
   } catch {
     throw new AgentNameCheckError(

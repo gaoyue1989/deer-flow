@@ -5,6 +5,8 @@ import {
   ChevronsUpDown,
   GlobeIcon,
   InfoIcon,
+  LogIn,
+  LogOut,
   MailIcon,
   Settings2Icon,
   SettingsIcon,
@@ -16,6 +18,7 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -25,8 +28,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/core/auth/context";
 import { useI18n } from "@/core/i18n/hooks";
 
+import { AuthDialog } from "./auth-dialog";
 import { GithubIcon } from "./github-icon";
 import { SettingsDialog } from "./settings";
 
@@ -56,8 +61,10 @@ export function WorkspaceNavMenu() {
     "appearance" | "memory" | "tools" | "skills" | "notification" | "about"
   >("appearance");
   const [mounted, setMounted] = useState(false);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const { open: isSidebarOpen } = useSidebar();
   const { t } = useI18n();
+  const { isAuthenticated, session, doLogout } = useAuth();
 
   useEffect(() => {
     setMounted(true);
@@ -70,6 +77,7 @@ export function WorkspaceNavMenu() {
         onOpenChange={setSettingsOpen}
         defaultSection={settingsDefaultSection}
       />
+      <AuthDialog open={authDialogOpen} onOpenChange={setAuthDialogOpen} />
       <SidebarMenu className="w-full">
         <SidebarMenuItem>
           {mounted ? (
@@ -146,6 +154,23 @@ export function WorkspaceNavMenu() {
                   <InfoIcon />
                   {t.workspace.about}
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {isAuthenticated ? (
+                  <>
+                    <DropdownMenuLabel className="truncate text-xs text-muted-foreground">
+                      {session?.email}
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => doLogout()}>
+                      <LogOut />
+                      {t.auth.signOut}
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <DropdownMenuItem onClick={() => setAuthDialogOpen(true)}>
+                    <LogIn />
+                    {t.auth.signIn}
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (

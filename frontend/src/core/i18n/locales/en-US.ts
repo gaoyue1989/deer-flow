@@ -448,7 +448,27 @@ export const enUS: Translations = {
     },
     acknowledge: {
       emptyTitle: "Acknowledgements",
-      emptyDescription: "Credits and acknowledgements will show here.",
+      emptyDescription: "Credits and acknowledations will show here.",
     },
+  },
+
+  // Auth
+  auth: {
+    signIn: "Sign In",
+    signOut: "Sign Out",
+    register: "Register",
+    login: "Login",
+    email: "Email",
+    password: "Password",
+    emailPlaceholder: "you@example.com",
+    passwordPlaceholder: "Enter your password",
+    noAccount: "Don't have an account?",
+    hasAccount: "Already have an account?",
+    registerSuccess: "Registration successful!",
+    loginSuccess: "Login successful!",
+    logoutSuccess: "Logged out successfully.",
+    loginFailed: "Login failed.",
+    registerFailed: "Registration failed.",
+    passwordTooShort: "Password must be at least 8 characters.",
   },
 };
