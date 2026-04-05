@@ -198,12 +198,10 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
         correction_detected = detect_correction(filtered_messages)
 
         # Extract user_id from thread metadata for multi-tenant memory isolation
+        # runtime.context IS the configurable dict — user_id is injected as a top-level key
         user_id = None
-        configurable = runtime.context.get("configurable", {})
-        if isinstance(configurable, dict):
-            metadata = configurable.get("metadata", {})
-            if isinstance(metadata, dict):
-                user_id = metadata.get("user_id")
+        if runtime.context:
+            user_id = runtime.context.get("user_id")
 
         queue = get_memory_queue()
         queue.add(

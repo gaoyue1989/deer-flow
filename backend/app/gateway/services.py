@@ -18,6 +18,7 @@ from fastapi import HTTPException, Request
 from langchain_core.messages import HumanMessage
 
 from app.gateway.deps import get_checkpointer, get_run_manager, get_store, get_stream_bridge
+from app.gateway.middleware.user_context import get_user_id_from_request
 from deerflow.runtime import (
     END_SENTINEL,
     HEARTBEAT_SENTINEL,
@@ -116,6 +117,7 @@ def build_run_config(
     metadata: dict[str, Any] | None,
     *,
     assistant_id: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
     """Build a RunnableConfig dict for the agent.
 
@@ -130,11 +132,18 @@ def build_run_config(
     identically.
     """
     config: dict[str, Any] = {"recursion_limit": 100}
+
+    # Build context dict — this is what LangGraph passes to runtime.context
+    # for tool execution. Unlike 'configurable', 'context' is not filtered.
+    context: dict[str, Any] = {"thread_id": thread_id}
+    if user_id:
+        context["user_id"] = user_id
+
     if request_config:
         # LangGraph >= 0.6.0 introduced ``context`` as the preferred way to
         # pass thread-level data and rejects requests that include both
         # ``configurable`` and ``context``.  If the caller already sends
-        # ``context``, honour it and skip our own ``configurable`` dict.
+        # ``context``, merge our values into it.
         if "context" in request_config:
             if "configurable" in request_config:
                 logger.warning(
@@ -142,16 +151,25 @@ def build_run_config(
                     thread_id,
                     list(request_config.get("configurable", {}).keys()),
                 )
-            config["context"] = request_config["context"]
+            # Merge our context values into the caller's context (caller wins on conflict)
+            merged_context = dict(request_config["context"])
+            merged_context.setdefault("thread_id", thread_id)
+            if user_id:
+                merged_context.setdefault("user_id", user_id)
+            config["context"] = merged_context
         else:
+            # Client sent 'configurable' — use it for LangGraph compatibility,
+            # but also create 'context' so tools can access user_id
             configurable = {"thread_id": thread_id}
             configurable.update(request_config.get("configurable", {}))
             config["configurable"] = configurable
+            config["context"] = context
         for k, v in request_config.items():
             if k not in ("configurable", "context"):
                 config[k] = v
     else:
         config["configurable"] = {"thread_id": thread_id}
+        config["context"] = context
 
     # Inject custom agent name when the caller specified a non-default assistant.
     # Honour an explicit configurable["agent_name"] in the request if already set.
@@ -163,6 +181,7 @@ def build_run_config(
             config["configurable"]["agent_name"] = normalized
     if metadata:
         config.setdefault("metadata", {}).update(metadata)
+
     return config
 
 
@@ -282,7 +301,8 @@ async def start_run(
 
     agent_factory = resolve_agent_factory(body.assistant_id)
     graph_input = normalize_input(body.input)
-    config = build_run_config(thread_id, body.config, body.metadata, assistant_id=body.assistant_id)
+    user_id = get_user_id_from_request(request)
+    config = build_run_config(thread_id, body.config, body.metadata, assistant_id=body.assistant_id, user_id=user_id)
 
     # Merge DeerFlow-specific context overrides into configurable.
     # The ``context`` field is a custom extension for the langgraph-compat layer
