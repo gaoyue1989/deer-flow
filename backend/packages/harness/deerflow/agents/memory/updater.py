@@ -249,7 +249,7 @@ def _fact_content_key(content: Any) -> str | None:
     stripped = content.strip()
     if not stripped:
         return None
-    return stripped
+    return stripped.casefold()
 
 
 class MemoryUpdater:
@@ -276,6 +276,7 @@ class MemoryUpdater:
         agent_name: str | None = None,
         user_id: str | None = None,
         correction_detected: bool = False,
+        reinforcement_detected: bool = False,
     ) -> bool:
         """Update memory based on conversation messages.
 
@@ -285,6 +286,7 @@ class MemoryUpdater:
             agent_name: If provided, updates per-agent memory. If None, updates global memory.
             user_id: If provided, updates per-user memory. If None, updates global memory.
             correction_detected: Whether recent turns include an explicit correction signal.
+            reinforcement_detected: Whether recent turns include a positive reinforcement signal.
 
         Returns:
             True if update was successful, False otherwise.
@@ -315,6 +317,14 @@ class MemoryUpdater:
                     "and record the correct approach as a fact with category "
                     '"correction" and confidence >= 0.95 when appropriate.'
                 )
+            if reinforcement_detected:
+                reinforcement_hint = (
+                    "IMPORTANT: Positive reinforcement signals were detected in this conversation. "
+                    "The user explicitly confirmed the agent's approach was correct or helpful. "
+                    "Record the confirmed approach, style, or preference as a fact with category "
+                    '"preference" or "behavior" and confidence >= 0.9 when appropriate.'
+                )
+                correction_hint = (correction_hint + "\n" + reinforcement_hint).strip() if correction_hint else reinforcement_hint
 
             prompt = MEMORY_UPDATE_PROMPT.format(
                 current_memory=json.dumps(current_memory, indent=2),
@@ -447,6 +457,7 @@ def update_memory_from_conversation(
     agent_name: str | None = None,
     user_id: str | None = None,
     correction_detected: bool = False,
+    reinforcement_detected: bool = False,
 ) -> bool:
     """Convenience function to update memory from a conversation.
 
@@ -456,9 +467,10 @@ def update_memory_from_conversation(
         agent_name: If provided, updates per-agent memory. If None, updates global memory.
         user_id: If provided, updates per-user memory. If None, updates global memory.
         correction_detected: Whether recent turns include an explicit correction signal.
+        reinforcement_detected: Whether recent turns include a positive reinforcement signal.
 
     Returns:
         True if successful, False otherwise.
     """
     updater = MemoryUpdater()
-    return updater.update_memory(messages, thread_id, agent_name, user_id, correction_detected)
+    return updater.update_memory(messages, thread_id, agent_name, user_id, correction_detected, reinforcement_detected)

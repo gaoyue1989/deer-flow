@@ -33,7 +33,7 @@ class AgentResponse(BaseModel):
     description: str = Field(default="", description="Agent description")
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
-    soul: str | None = Field(default=None, description="SOUL.md content (included on GET /{name})")
+    soul: str | None = Field(default=None, description="SOUL.md content")
 
 
 class AgentsListResponse(BaseModel):
@@ -121,7 +121,7 @@ def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False
     "/agents",
     response_model=AgentsListResponse,
     summary="List Custom Agents",
-    description="List all custom agents available to the current user.",
+    description="List all custom agents available to the current user, including their soul content.",
 )
 async def list_agents(request: Request) -> AgentsListResponse:
     """List all custom agents visible to the current user.
@@ -130,13 +130,13 @@ async def list_agents(request: Request) -> AgentsListResponse:
     In single-tenant mode, returns all agents.
 
     Returns:
-        List of all custom agents with their metadata (without soul content).
+        List of all custom agents with their metadata and soul content.
     """
     try:
         user_id = get_user_id_from_request(request)
         all_agents = list_custom_agents()
         agents = filter_agents_by_user(all_agents, user_id)
-        return AgentsListResponse(agents=[_agent_config_to_response(a) for a in agents])
+        return AgentsListResponse(agents=[_agent_config_to_response(a, include_soul=True) for a in agents])
     except Exception as e:
         logger.error(f"Failed to list agents: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to list agents: {str(e)}")
