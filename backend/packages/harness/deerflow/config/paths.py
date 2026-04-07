@@ -117,11 +117,6 @@ class Paths:
         return self.base_dir / "memory.json"
 
     @property
-    def user_md_file(self) -> Path:
-        """Path to the global user profile file: `{base_dir}/USER.md`."""
-        return self.base_dir / "USER.md"
-
-    @property
     def agents_dir(self) -> Path:
         """Root directory for all custom agents: `{base_dir}/agents/`."""
         return self.base_dir / "agents"

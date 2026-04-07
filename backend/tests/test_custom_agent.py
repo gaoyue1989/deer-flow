@@ -56,7 +56,7 @@ class TestPaths:
 
     def test_user_md_file(self, tmp_path):
         paths = _make_paths(tmp_path)
-        assert paths.user_md_file == tmp_path / "USER.md"
+        assert paths.user_md_file() == tmp_path / "USER.md"
 
     def test_paths_are_different_from_global(self, tmp_path):
         paths = _make_paths(tmp_path)

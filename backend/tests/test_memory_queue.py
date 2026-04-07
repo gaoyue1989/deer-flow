@@ -87,6 +87,7 @@ def test_process_queue_forwards_reinforcement_flag_to_updater() -> None:
         messages=["conversation"],
         thread_id="thread-1",
         agent_name="lead_agent",
+        user_id=None,
         correction_detected=False,
         reinforcement_detected=True,
     )
