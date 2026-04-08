@@ -8,7 +8,6 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from app.gateway.deps import get_store
-from app.gateway.middleware.user_context import get_user_id_from_request
 from app.gateway.routers.threads import _check_thread_ownership, _store_get
 from deerflow.config.paths import get_paths
 from deerflow.sandbox.sandbox_provider import get_sandbox_provider

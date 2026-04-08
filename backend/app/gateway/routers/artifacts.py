@@ -8,7 +8,6 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 
 from app.gateway.deps import get_store
-from app.gateway.middleware.user_context import get_user_id_from_request
 from app.gateway.path_utils import resolve_thread_virtual_path
 from app.gateway.routers.threads import _check_thread_ownership, _store_get
 

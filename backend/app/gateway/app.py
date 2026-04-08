@@ -10,13 +10,11 @@ from app.gateway.middleware import UserContextMiddleware
 from app.gateway.routers import (
     agents,
     artifacts,
-    assistants_compat,
     auth,
     channels,
     mcp,
     memory,
     models,
-    runs,
     skills,
     suggestions,
     thread_runs,

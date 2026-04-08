@@ -14,7 +14,7 @@ from app.gateway.auth.jwt import (
     reset_jwt_secret_cache,
     verify_password,
 )
-from app.gateway.auth.models import AuthenticationError, TokenData, UserRole
+from app.gateway.auth.models import AuthenticationError, UserRole
 from deerflow.config.multi_tenant_config import load_multi_tenant_config_from_dict, reset_multi_tenant_config
 
 

@@ -9,16 +9,15 @@ import yaml
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from app.gateway.middleware.user_context import get_user_id_from_request
 from deerflow.config.agents_config import (
     AgentConfig,
     filter_agents_by_user,
-    get_agent_owner,
     list_custom_agents,
     load_agent_config,
     load_agent_soul,
 )
 from deerflow.config.paths import get_paths
-from app.gateway.middleware.user_context import get_user_id_from_request
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["agents"])

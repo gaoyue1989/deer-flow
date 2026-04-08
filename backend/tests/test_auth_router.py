@@ -1,13 +1,10 @@
 """Tests for auth router endpoints."""
 
-from unittest.mock import MagicMock, patch
-from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.gateway.auth.jwt import create_access_token, hash_password
-from deerflow.config.multi_tenant_config import load_multi_tenant_config_from_dict, reset_multi_tenant_config
+from deerflow.config.multi_tenant_config import reset_multi_tenant_config
 
 
 @pytest.fixture(autouse=True)
@@ -22,6 +19,7 @@ def reset_config():
 def client():
     """Create a test client with auth router."""
     from fastapi import FastAPI
+
     from app.gateway.routers.auth import router
 
     app = FastAPI()
@@ -32,8 +30,8 @@ def client():
 @pytest.fixture
 def mock_store(tmp_path):
     """Create a mock UserStore with temp directory."""
-    from app.gateway.users.store import UserStore
     from app.gateway.routers import auth as auth_module
+    from app.gateway.users.store import UserStore
 
     store = UserStore(base_dir=tmp_path)
     auth_module._user_store = store

@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 
 from app.gateway.deps import get_checkpointer, get_store
 from app.gateway.middleware.user_context import get_user_id_from_request
-from deerflow.agents.thread_metadata import filter_threads_by_user, get_thread_metadata
+from deerflow.agents.thread_metadata import get_thread_metadata
 from deerflow.config.paths import Paths, get_paths
 from deerflow.runtime import serialize_channel_values
 
