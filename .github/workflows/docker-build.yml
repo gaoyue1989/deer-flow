@@ -132,3 +132,37 @@ jobs:
           echo "Backend image: ${{ steps.meta-backend.outputs.tags }}"
           echo "Frontend image: ${{ steps.meta-frontend.outputs.tags }}"
           echo "Provisioner image: ${{ steps.meta-provisioner.outputs.tags }}"
+
+      - name: Set package visibility to public
+        if: github.event_name != 'pull_request'
+        run: |
+          # Extract package names from image names
+          BACKEND_PKG=$(echo "${{ env.BACKEND_IMAGE_NAME }}" | cut -d'/' -f2)
+          FRONTEND_PKG=$(echo "${{ env.FRONTEND_IMAGE_NAME }}" | cut -d'/' -f2)
+          PROVISIONER_PKG=$(echo "${{ env.PROVISIONER_IMAGE_NAME }}" | cut -d'/' -f2)
+          
+          # Set backend package to public
+          echo "Setting $BACKEND_PKG to public..."
+          curl -X PATCH \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/user/packages/container/$BACKEND_PKG \
+            -d '{"visibility":"public"}' || echo "Failed to set backend package visibility"
+          
+          # Set frontend package to public
+          echo "Setting $FRONTEND_PKG to public..."
+          curl -X PATCH \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/user/packages/container/$FRONTEND_PKG \
+            -d '{"visibility":"public"}' || echo "Failed to set frontend package visibility"
+          
+          # Set provisioner package to public
+          echo "Setting $PROVISIONER_PKG to public..."
+          curl -X PATCH \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/user/packages/container/$PROVISIONER_PKG \
+            -d '{"visibility":"public"}' || echo "Failed to set provisioner package visibility"
+          
+          echo "✅ All packages set to public visibility"
