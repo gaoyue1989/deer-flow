@@ -32,7 +32,9 @@ EXPOSE 3000
 FROM base AS builder
 RUN cd /app/frontend && pnpm install --frozen-lockfile
 # Skip env validation — runtime vars are injected by nginx/container
-RUN cd /app/frontend && SKIP_ENV_VALIDATION=1 pnpm build
+ENV SKIP_ENV_VALIDATION=1
+ENV BETTER_AUTH_SECRET=docker-build-secret
+RUN cd /app/frontend && pnpm build
 
 # ── Prod: minimal runtime with pre-built output ───────────────────────────────
 FROM node:22-alpine AS prod
