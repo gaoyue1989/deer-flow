@@ -31,6 +31,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Create frontend .env file for build
+        run: |
+          echo "BETTER_AUTH_SECRET=github-actions-build-secret" > frontend/.env
+          cat frontend/.env
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
 
@@ -107,6 +112,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
+          build-args: |
+            BUILDKIT_CONTEXT_KEEP_GIT_DIR=1
 
       - name: Build and push Provisioner image
         uses: docker/build-push-action@v6
