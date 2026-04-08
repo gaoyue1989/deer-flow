@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
 
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { CommandPalette } from '@/components/workspace/command-palette';
-import { WorkspaceSidebar } from '@/components/workspace/workspace-sidebar';
-import { AuthProvider } from '@/core/auth/context';
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { CommandPalette } from "@/components/workspace/command-palette";
+import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
+import { AuthProvider } from "@/core/auth/context";
 
 // Initialize queryClient at module level
 const queryClient = new QueryClient({
@@ -17,7 +17,11 @@ const queryClient = new QueryClient({
   },
 });
 
-export default function WorkspaceLayoutClient({ children }: { children: React.ReactNode }) {
+export default function WorkspaceLayoutClient({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (

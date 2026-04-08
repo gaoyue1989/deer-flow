@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { Toaster } from "sonner";
 
-import WorkspaceLayoutClient from './layout-client';
+import WorkspaceLayoutClient from "./layout-client";
 
 function parseSidebarOpenCookie(
   value: string | undefined,

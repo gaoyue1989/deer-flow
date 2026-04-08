@@ -18,7 +18,10 @@ ACTIVE_ARTIFACT_CASES = [
 
 
 def _make_request(query_string: bytes = b"") -> Request:
-    return Request({"type": "http", "method": "GET", "path": "/", "headers": [], "query_string": query_string})
+    # Create a minimal app instance for the request scope
+    mock_app = FastAPI()
+    mock_app.state.store = None  # store is not used in these tests
+    return Request({"type": "http", "method": "GET", "path": "/", "headers": [], "query_string": query_string, "app": mock_app})
 
 
 def test_get_artifact_reads_utf8_text_file_on_windows_locale(tmp_path, monkeypatch) -> None:

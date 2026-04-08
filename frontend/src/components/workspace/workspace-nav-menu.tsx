@@ -157,7 +157,7 @@ export function WorkspaceNavMenu() {
                 <DropdownMenuSeparator />
                 {isAuthenticated ? (
                   <>
-                    <DropdownMenuLabel className="truncate text-xs text-muted-foreground">
+                    <DropdownMenuLabel className="text-muted-foreground truncate text-xs">
                       {session?.email}
                     </DropdownMenuLabel>
                     <DropdownMenuItem onClick={() => doLogout()}>

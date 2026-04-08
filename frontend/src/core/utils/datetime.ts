@@ -20,7 +20,8 @@ export function formatTimeAgo(date: Date | string | number, locale?: Locale) {
     return "";
   }
 
-  const parsedDate = typeof date === "number" ? new Date(date * 1000) : new Date(date);
+  const parsedDate =
+    typeof date === "number" ? new Date(date * 1000) : new Date(date);
   if (isNaN(parsedDate.getTime())) {
     return "";
   }
