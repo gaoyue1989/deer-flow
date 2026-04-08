@@ -334,9 +334,12 @@ def test_build_run_config_context_passthrough_other_keys():
 
 
 def test_build_run_config_no_request_config():
-    """When request_config is None, fall back to basic configurable with thread_id."""
+    """When request_config is None, fall back to basic configurable with thread_id.
+    Note: In current implementation, we always add context with thread_id for user_id support.
+    """
     from app.gateway.services import build_run_config
 
     config = build_run_config("thread-abc", None, None)
     assert config["configurable"] == {"thread_id": "thread-abc"}
-    assert "context" not in config
+    assert "context" in config
+    assert config["context"] == {"thread_id": "thread-abc"}
