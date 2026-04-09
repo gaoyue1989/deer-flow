@@ -1,6 +1,6 @@
 ---
 name: multi-tenant-validation
-description: Merge upstream bytedance/deer-flow, run unit tests, start services with make dev-daemon, validate multi-tenant API according to backend/MULTI_TENANT_REPORT.md, validate frontend code, generate validation report, and verify the complete multi-tenant feature works correctly. Use when you need to validate the multi-tenant feature after merging changes.
+description: Merge upstream bytedance/deer-flow, run unit tests, restart services with make dev-daemon, validate multi-tenant API according to backend/MULTI_TENANT_REPORT.md, validate frontend code, generate validation report, and verify the complete multi-tenant feature works correctly. Use this skill after merging upstream changes to automatically validate the entire multi-tenant feature end-to-end.
 ---
 
 # Multi-Tenant Feature Validation Skill
@@ -9,10 +9,11 @@ This skill automates the complete validation workflow for the DeerFlow multi-ten
 1. Merge upstream (bytedance/deer-flow) changes into current branch
 2. Run all multi-tenant related unit tests
 3. Validate frontend code (lint check)
-4. Start all development services in daemon mode using `make dev-daemon`
-5. Run comprehensive multi-tenant API validation according to the specification
-6. Generate a validation report in markdown format
-7. All isolation guarantees are verified (cross-user access is correctly blocked)
+4. **Stop all running services and restart with `make dev-daemon`** (ensures latest code is running)
+5. Wait for all services to be healthy
+6. Run comprehensive multi-tenant API validation according to the specification
+7. Generate a validation report in markdown format
+8. All isolation guarantees are verified (cross-user access is correctly blocked)
 
 ## Workflow
 
@@ -35,9 +36,11 @@ This skill automates the complete validation workflow for the DeerFlow multi-ten
 - Run ESLint to check for code errors
 - Verify authentication components work with multi-tenant
 
-### Step 4: Start Services
-- Start all services in daemon mode (background) with `make dev-daemon`
-- Waits for all services to be healthy
+### Step 4: Restart Services
+- **Stop all running services** with `make stop`
+- Start all services **fresh** in daemon mode (background) with `make dev-daemon`
+- Automatically waits for gateway to be healthy (up to 60 seconds)
+- This ensures the latest merged code is actually running
 
 ### Step 5: Run API Validation
 Creates two test users and verifies all multi-tenant isolation guarantees:
@@ -64,7 +67,7 @@ Creates two test users and verifies all multi-tenant isolation guarantees:
 ## Usage
 
 ```
-# Just invoke the skill - it will do everything
+# Just invoke the skill - it will do everything from merge to report
 /invoke multi-tenant-validation
 ```
 
@@ -78,5 +81,5 @@ Creates two test users and verifies all multi-tenant isolation guarantees:
 ## Output
 
 - `MULTI_TENANT_API_VALIDATION_REPORT.md` - Complete test results
-- All services running in background (daemon mode)
+- All services running in background (daemon mode) with latest code
 
