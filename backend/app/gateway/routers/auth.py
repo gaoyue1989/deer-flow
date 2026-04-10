@@ -9,26 +9,36 @@ but unauthenticated API requests use user_id="default".
 import logging
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, EmailStr, Field
 
 from app.gateway.auth import UserRole, create_access_token, get_optional_user, hash_password, verify_password
 from app.gateway.auth.models import TokenData
-from app.gateway.users import UserStore
+from app.gateway.users import UserStore, DBUserStore
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
 
-_user_store: UserStore | None = None
+_user_store: DBUserStore | None = None
 
 
-def get_user_store() -> UserStore:
-    """Get the singleton UserStore instance."""
+def get_user_store(request: Request) -> DBUserStore | UserStore:
+    """Get the DBUserStore instance, shared on app.state.
+
+    Creates it once when first requested and reuses it thereafter.
+    Falls back to global singleton for testing.
+    """
     global _user_store
-    if _user_store is None:
-        _user_store = UserStore()
-    return _user_store
+    # For backward compatibility with tests: if global _user_store is already set,
+    # use it (this allows existing tests with mock UserStore to continue working)
+    if _user_store is not None:
+        return _user_store
+
+    # Normal operation - get from app.state
+    if not hasattr(request.app.state, "user_store"):
+        request.app.state.user_store = DBUserStore()
+    return request.app.state.user_store
 
 
 def create_token_for_user(user: dict) -> str:
@@ -77,10 +87,12 @@ class UserInfoResponse(BaseModel):
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(req: RegisterRequest, response: Response) -> TokenResponse:
+async def register(
+    req: RegisterRequest,
+    response: Response,
+    store: DBUserStore = Depends(get_user_store),
+) -> TokenResponse:
     """Register a new user."""
-    store = get_user_store()
-
     if store.get_by_email(req.email):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -122,9 +134,12 @@ async def register(req: RegisterRequest, response: Response) -> TokenResponse:
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(req: LoginRequest, response: Response) -> TokenResponse:
+async def login(
+    req: LoginRequest,
+    response: Response,
+    store: DBUserStore = Depends(get_user_store),
+) -> TokenResponse:
     """Authenticate a user and return a JWT token."""
-    store = get_user_store()
     user = store.get_by_email(req.email)
 
     if not user:
@@ -163,9 +178,9 @@ async def login(req: LoginRequest, response: Response) -> TokenResponse:
 @router.get("/me", response_model=UserInfoResponse)
 async def get_current_user_info(
     current_user: TokenData = Depends(get_optional_user),
+    store: DBUserStore = Depends(get_user_store),
 ) -> UserInfoResponse:
     """Get information about the currently authenticated user."""
-    store = get_user_store()
     user = store.get_by_id(current_user.user_id)
 
     if user:
