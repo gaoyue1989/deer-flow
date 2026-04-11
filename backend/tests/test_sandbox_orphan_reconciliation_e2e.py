@@ -21,8 +21,19 @@ import pytest
 
 
 def _docker_available() -> bool:
+    """Check if Docker is available and can run containers.
+
+    Returns False if:
+    - Docker daemon is not running
+    - Network issues prevent pulling images
+    - Docker commands timeout
+    """
     try:
         result = subprocess.run(["docker", "info"], capture_output=True, timeout=5)
+        if result.returncode != 0:
+            return False
+
+        result = subprocess.run(["docker", "run", "--rm", "alpine:latest", "echo", "test"], capture_output=True, timeout=10)
         return result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False

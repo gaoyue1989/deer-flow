@@ -4,14 +4,14 @@ import pytest
 from uuid import uuid4
 from app.gateway.users.db_store import DBUserStore
 from app.gateway.auth.models import UserRole
-from langgraph.checkpoint.memory import InMemorySaver
+from deerflow.config.checkpointer_config import CheckpointerConfig, set_checkpointer_config
 
 
 @pytest.fixture
 def db_user_store():
     """Create a DBUserStore with in-memory checkpointer."""
-    checkpointer = InMemorySaver()
-    store = DBUserStore(checkpointer)
+    set_checkpointer_config(CheckpointerConfig(type="memory"))
+    store = DBUserStore()
     yield store
     store.close()
 
