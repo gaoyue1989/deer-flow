@@ -8,6 +8,7 @@ Supported backends:
 - memory: In-memory SQLite
 - sqlite: SQLite database file (creates separate sync connection)
 - postgres: PostgreSQL database (creates separate sync connection)
+- mysql: MySQL database (creates separate sync connection)
 """
 
 from __future__ import annotations
@@ -48,6 +49,7 @@ class DBUserStore:
         self._lock = threading.Lock()
         self._conn = None
         self._is_sqlite = False
+        self._is_mysql = False
         self._pool = None
         self._initialize_connection()
         self._create_table_if_not_exists()
@@ -60,6 +62,8 @@ class DBUserStore:
             self._init_sqlite()
         elif self._config.type == "postgres":
             self._init_postgres()
+        elif self._config.type == "mysql":
+            self._init_mysql()
         else:
             raise ValueError(f"Unknown database type: {self._config.type}")
 
@@ -88,6 +92,41 @@ class DBUserStore:
         self._conn = psycopg.connect(self._config.connection_string)
         self._is_sqlite = False
 
+    def _init_mysql(self) -> None:
+        """Initialize MySQL database from config."""
+        import pymysql
+
+        if not self._config.connection_string:
+            raise ValueError("connection_string is required for mysql backend")
+
+        # Parse connection string: mysql://user:password@host:port/dbname
+        conn_str = self._config.connection_string
+        if conn_str.startswith("mysql://"):
+            conn_str = conn_str[8:]
+
+        # Parse user:password@host:port/dbname
+        user_pass, rest = conn_str.split("@", 1)
+        user, password = user_pass.split(":", 1)
+        host_port_db = rest.split("/")
+        host_port = host_port_db[0].split(":")
+        dbname = host_port_db[1] if len(host_port_db) > 1 else ""
+
+        host = host_port[0]
+        port = int(host_port[1]) if len(host_port) > 1 else 3306
+
+        self._conn = pymysql.connect(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database=dbname,
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor,
+            init_command="SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
+        )
+        self._is_sqlite = False
+        self._is_mysql = True
+
     def _create_table_if_not_exists(self) -> None:
         """Create the users table if it doesn't already exist."""
         create_table_sql = """
@@ -104,6 +143,9 @@ class DBUserStore:
 
         if self._is_sqlite:
             quota_def = "quota_limits JSON DEFAULT '{}'"
+        elif self._is_mysql:
+            # MySQL doesn't allow DEFAULT for JSON columns
+            quota_def = "quota_limits JSON"
         else:
             quota_def = "quota_limits JSONB DEFAULT '{}'::JSONB"
 
@@ -112,6 +154,15 @@ class DBUserStore:
                 cursor = self._conn.cursor()
                 cursor.execute(create_table_sql % quota_def)
                 cursor.execute(create_index_sql)
+                self._conn.commit()
+            elif self._is_mysql:
+                cursor = self._conn.cursor()
+                cursor.execute(create_table_sql % quota_def)
+                # MySQL doesn't support IF NOT EXISTS for indexes
+                try:
+                    cursor.execute("CREATE INDEX idx_users_email ON users(email);")
+                except Exception:
+                    pass  # Index already exists
                 self._conn.commit()
             else:
                 with self._conn.cursor() as cur:
@@ -127,6 +178,10 @@ class DBUserStore:
             if self._is_sqlite:
                 cursor = self._conn.cursor()
                 cursor.execute("SELECT user_id, email, hashed_password, role, created_at, quota_limits FROM users WHERE user_id = ?", (user_id_str,))
+                row = cursor.fetchone()
+            elif self._is_mysql:
+                cursor = self._conn.cursor()
+                cursor.execute("SELECT user_id, email, hashed_password, role, created_at, quota_limits FROM users WHERE user_id = %s", (user_id_str,))
                 row = cursor.fetchone()
             else:
                 with self._conn.cursor() as cur:
@@ -144,6 +199,10 @@ class DBUserStore:
             if self._is_sqlite:
                 cursor = self._conn.cursor()
                 cursor.execute("SELECT user_id, email, hashed_password, role, created_at, quota_limits FROM users WHERE email = ?", (email,))
+                row = cursor.fetchone()
+            elif self._is_mysql:
+                cursor = self._conn.cursor()
+                cursor.execute("SELECT user_id, email, hashed_password, role, created_at, quota_limits FROM users WHERE email = %s", (email,))
                 row = cursor.fetchone()
             else:
                 with self._conn.cursor() as cur:
@@ -191,6 +250,24 @@ class DBUserStore:
                     (user_id_str, email, hashed_password, role.value, created_at, quota_json),
                 )
                 self._conn.commit()
+            elif self._is_mysql:
+                cursor = self._conn.cursor()
+                cursor.execute("SELECT user_id FROM users WHERE user_id = %s", (user_id_str,))
+                if cursor.fetchone() is not None:
+                    raise ValueError(f"User ID {user_id_str} already exists")
+
+                cursor.execute("SELECT user_id FROM users WHERE email = %s", (email,))
+                if cursor.fetchone() is not None:
+                    raise ValueError(f"Email {email} already registered")
+
+                cursor.execute(
+                    """
+                    INSERT INTO users (user_id, email, hashed_password, role, created_at, quota_limits)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (user_id_str, email, hashed_password, role.value, created_at, quota_json),
+                )
+                self._conn.commit()
             else:
                 with self._conn.cursor() as cur:
                     cur.execute("SELECT user_id FROM users WHERE user_id = %s", (user_id_str,))
@@ -229,6 +306,11 @@ class DBUserStore:
                 cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id_str,))
                 if cursor.fetchone() is None:
                     raise ValueError(f"User {user_id_str} not found")
+            elif self._is_mysql:
+                cursor = self._conn.cursor()
+                cursor.execute("SELECT user_id FROM users WHERE user_id = %s", (user_id_str,))
+                if cursor.fetchone() is None:
+                    raise ValueError(f"User {user_id_str} not found")
             else:
                 with self._conn.cursor() as cur:
                     cur.execute("SELECT user_id FROM users WHERE user_id = %s", (user_id_str,))
@@ -240,6 +322,11 @@ class DBUserStore:
                 if self._is_sqlite:
                     cursor = self._conn.cursor()
                     cursor.execute("SELECT user_id FROM users WHERE email = ? AND user_id != ?", (new_email, user_id_str))
+                    if cursor.fetchone() is not None:
+                        raise ValueError(f"Email {new_email} already registered")
+                elif self._is_mysql:
+                    cursor = self._conn.cursor()
+                    cursor.execute("SELECT user_id FROM users WHERE email = %s AND user_id != %s", (new_email, user_id_str))
                     if cursor.fetchone() is not None:
                         raise ValueError(f"Email {new_email} already registered")
                 else:
@@ -259,7 +346,7 @@ class DBUserStore:
                     value = value.value
                 elif key == "quota_limits":
                     set_clauses.append(f"quota_limits = {self._placeholder()}")
-                    if not self._is_sqlite:
+                    if not self._is_sqlite and not self._is_mysql:
                         value = f"{json.dumps(value)}::JSONB"
                     else:
                         value = json.dumps(value)
@@ -273,6 +360,11 @@ class DBUserStore:
 
             if self._is_sqlite:
                 query = f"UPDATE users SET {', '.join(set_clauses)} WHERE user_id = ?"
+                cursor = self._conn.cursor()
+                cursor.execute(query, params)
+                self._conn.commit()
+            elif self._is_mysql:
+                query = f"UPDATE users SET {', '.join(set_clauses)} WHERE user_id = %s"
                 cursor = self._conn.cursor()
                 cursor.execute(query, params)
                 self._conn.commit()
@@ -293,6 +385,10 @@ class DBUserStore:
             cursor = self._conn.cursor()
             cursor.execute("SELECT user_id, email, hashed_password, role, created_at, quota_limits FROM users WHERE user_id = ?", (user_id_str,))
             return cursor.fetchone()
+        elif self._is_mysql:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT user_id, email, hashed_password, role, created_at, quota_limits FROM users WHERE user_id = %s", (user_id_str,))
+            return cursor.fetchone()
         else:
             with self._conn.cursor() as cur:
                 cur.execute("SELECT user_id, email, hashed_password, role, created_at, quota_limits FROM users WHERE user_id = %s", (user_id_str,))
@@ -309,6 +405,13 @@ class DBUserStore:
                 if cursor.fetchone() is None:
                     raise ValueError(f"User {user_id_str} not found")
                 cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id_str,))
+                self._conn.commit()
+            elif self._is_mysql:
+                cursor = self._conn.cursor()
+                cursor.execute("SELECT user_id FROM users WHERE user_id = %s", (user_id_str,))
+                if cursor.fetchone() is None:
+                    raise ValueError(f"User {user_id_str} not found")
+                cursor.execute("DELETE FROM users WHERE user_id = %s", (user_id_str,))
                 self._conn.commit()
             else:
                 with self._conn.cursor() as cur:
@@ -337,6 +440,18 @@ class DBUserStore:
                     (limit, offset),
                 )
                 rows = cursor.fetchall()
+            elif self._is_mysql:
+                cursor = self._conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT user_id, email, hashed_password, role, created_at, quota_limits
+                    FROM users
+                    ORDER BY created_at DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    (limit, offset),
+                )
+                rows = cursor.fetchall()
             else:
                 with self._conn.cursor() as cur:
                     cur.execute(
@@ -358,7 +473,19 @@ class DBUserStore:
 
     def _row_to_dict(self, row: Any) -> dict[str, Any]:
         """Convert a database row to a user dict."""
-        if self._is_sqlite:
+        if self._is_mysql:
+            # MySQL DictCursor returns dict directly
+            user_id = row.get("user_id")
+            email = row.get("email")
+            hashed_password = row.get("hashed_password")
+            role_str = row.get("role")
+            created_at = row.get("created_at")
+            quota_limits = row.get("quota_limits")
+            if quota_limits is None:
+                quota_limits = {}
+            elif isinstance(quota_limits, str):
+                quota_limits = json.loads(quota_limits)
+        elif self._is_sqlite:
             user_id, email, hashed_password, role_str, created_at, quota_json = row
             if quota_json:
                 quota_limits = json.loads(quota_json)
