@@ -1,0 +1,161 @@
+config_version: 6
+log_level: info
+token_usage:
+  enabled: false
+models:
+- name: qwen3.5-plus
+  display_name: Qwen 3.5 Plus (Aliyun)
+  use: langchain_openai:ChatOpenAI
+  model: qwen3.5-plus
+  api_key: sk-0440b76852944f019bb142a715bc2cab
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  request_timeout: 600.0
+  max_retries: 2
+  max_tokens: 8192
+  supports_vision: true
+  supports_thinking: true
+- name: glm-5
+  display_name: GLM-5 (Tianyi)
+  use: langchain_openai:ChatOpenAI
+  model: 5df2c9ff4ad347cb95ea42ad6e9e1729
+  api_key: 209df1cb15124118a9c4583f4c5b7997
+  base_url: https://wishub-x6.ctyun.cn/v1
+  request_timeout: 600.0
+  max_retries: 2
+  max_tokens: 8192
+  supports_vision: false
+  supports_thinking: true
+- name: qwen3-vl
+  display_name: Qwen3-VL (Tianyi)
+  use: langchain_openai:ChatOpenAI
+  model: b0d79f4a19bb4fa8a71745fff38325a4
+  api_key: 209df1cb15124118a9c4583f4c5b7997
+  base_url: https://wishub-x6.ctyun.cn/v1
+  request_timeout: 600.0
+  max_retries: 2
+  max_tokens: 8192
+  supports_vision: true
+  supports_thinking: false
+- name: qwen3-max
+  display_name: Qwen3-MAX (Tianyi)
+  use: langchain_openai:ChatOpenAI
+  model: 3d1c69eb6e1d40f186124b98141e64fd
+  api_key: 209df1cb15124118a9c4583f4c5b7997
+  base_url: https://wishub-x6.ctyun.cn/v1
+  request_timeout: 600.0
+  max_retries: 2
+  max_tokens: 8192
+  supports_vision: false
+  supports_thinking: true
+- name: doubao-seed-2.0-pro
+  display_name: Doubao-Seed-2.0-pro (Tianyi)
+  use: langchain_openai:ChatOpenAI
+  model: d4432662ebed421890bf8fe60e400439
+  api_key: 209df1cb15124118a9c4583f4c5b7997
+  base_url: https://wishub-x6.ctyun.cn/v1
+  request_timeout: 600.0
+  max_retries: 2
+  max_tokens: 8192
+  supports_vision: false
+  supports_thinking: true
+- name: qwen3-coder-plus
+  display_name: Qwen3-Coder-Plus (Tianyi)
+  use: langchain_openai:ChatOpenAI
+  model: f9089c3c29b24ac7a0148efad6c0650d
+  api_key: 209df1cb15124118a9c4583f4c5b7997
+  base_url: https://wishub-x6.ctyun.cn/v1
+  request_timeout: 600.0
+  max_retries: 2
+  max_tokens: 8192
+  supports_vision: false
+  supports_thinking: true
+tool_groups:
+- name: file:read
+- name: file:write
+- name: bash
+- name: web
+tools:
+- name: web_search
+  group: web
+  use: deerflow.community.ddg_search.tools:web_search_tool
+  max_results: 5
+- name: web_fetch
+  group: web
+  use: deerflow.community.jina_ai.tools:web_fetch_tool
+  timeout: 10
+- name: image_search
+  group: web
+  use: deerflow.community.image_search.tools:image_search_tool
+  max_results: 5
+- name: ls
+  group: file:read
+  use: deerflow.sandbox.tools:ls_tool
+- name: read_file
+  group: file:read
+  use: deerflow.sandbox.tools:read_file_tool
+- name: glob
+  group: file:read
+  use: deerflow.sandbox.tools:glob_tool
+  max_results: 200
+- name: grep
+  group: file:read
+  use: deerflow.sandbox.tools:grep_tool
+  max_results: 100
+- name: write_file
+  group: file:write
+  use: deerflow.sandbox.tools:write_file_tool
+- name: str_replace
+  group: file:write
+  use: deerflow.sandbox.tools:str_replace_tool
+- name: bash
+  group: bash
+  use: deerflow.sandbox.tools:bash_tool
+tool_search:
+  enabled: true
+uploads:
+  pdf_converter: auto
+sandbox:
+  use: deerflow.sandbox.local:LocalSandboxProvider
+  allow_host_bash: false
+  bash_output_max_chars: 20000
+  read_file_output_max_chars: 50000
+  ls_output_max_chars: 20000
+skills:
+  container_path: /mnt/skills
+title:
+  enabled: true
+  max_words: 6
+  max_chars: 60
+  model_name: null
+summarization:
+  enabled: true
+  model_name: null
+  trigger:
+  - type: tokens
+    value: 15564
+  keep:
+    type: messages
+    value: 10
+  trim_tokens_to_summarize: 15564
+  summary_prompt: null
+memory:
+  enabled: true
+  storage_path: memory.json
+  debounce_seconds: 30
+  model_name: null
+  max_facts: 100
+  fact_confidence_threshold: 0.7
+  injection_enabled: true
+  max_injection_tokens: 2000
+checkpointer:
+  type: mysql
+  connection_string: mysql://root:deerflow@localhost:3306/deerflow
+multi_tenant:
+  enabled: true
+  jwt_secret: super-secret-jwt-key-for-testing
+  token_expire_minutes: 10080
+  algorithm: HS256
+  default_user_id: default
+skill_evolution:
+  enabled: false
+  moderation_model_name: null
