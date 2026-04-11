@@ -137,6 +137,18 @@ wheels = [
 ]
 
 [[package]]
+name = "aiomysql"
+version = "0.3.2"
+source = { registry = "https://mirrors.tencent.com/pypi/simple" }
+dependencies = [
+    { name = "pymysql" },
+]
+sdist = { url = "https://mirrors.tencent.com/pypi/packages/29/e0/302aeffe8d90853556f47f3106b89c16cc2ec2a4d269bdfd82e3f4ae12cc/aiomysql-0.3.2.tar.gz", hash = "sha256:72d15ef5cfc34c03468eb41e1b90adb9fd9347b0b589114bd23ead569a02ac1a" }
+wheels = [
+    { url = "https://mirrors.tencent.com/pypi/packages/4c/af/aae0153c3e28712adaf462328f6c7a3c196a1c1c27b491de4377dd3e6b52/aiomysql-0.3.2-py3-none-any.whl", hash = "sha256:c82c5ba04137d7afd5c693a258bea8ead2aad77101668044143a991e04632eb2" },
+]
+
+[[package]]
 name = "aiosignal"
 version = "1.4.0"
 source = { registry = "https://mirrors.tencent.com/pypi/simple" }
@@ -741,6 +753,7 @@ dependencies = [
     { name = "email-validator" },
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "langchain-openai" },
     { name = "langgraph-checkpoint-postgres" },
     { name = "langgraph-sdk" },
     { name = "lark-oapi" },
@@ -769,6 +782,7 @@ requires-dist = [
     { name = "email-validator", specifier = ">=2.0.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "httpx", specifier = ">=0.28.0" },
+    { name = "langchain-openai", specifier = ">=1.1.7" },
     { name = "langgraph-checkpoint-postgres", specifier = ">=2.0.0" },
     { name = "langgraph-sdk", specifier = ">=0.1.51" },
     { name = "lark-oapi", specifier = ">=1.4.0" },
@@ -813,6 +827,7 @@ dependencies = [
     { name = "langfuse" },
     { name = "langgraph" },
     { name = "langgraph-api" },
+    { name = "langgraph-checkpoint-mysql", extra = ["aiomysql", "pymysql"] },
     { name = "langgraph-checkpoint-sqlite" },
     { name = "langgraph-cli" },
     { name = "langgraph-runtime-inmem" },
@@ -827,6 +842,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+mysql-async = [
+    { name = "langgraph-checkpoint-mysql", extra = ["aiomysql"] },
+]
 pymupdf = [
     { name = "pymupdf4llm" },
 ]
@@ -851,6 +869,9 @@ requires-dist = [
     { name = "langfuse", specifier = ">=3.4.1" },
     { name = "langgraph", specifier = ">=1.0.6,<1.0.10" },
     { name = "langgraph-api", specifier = ">=0.7.0,<0.8.0" },
+    { name = "langgraph-checkpoint-mysql", extras = ["aiomysql"], specifier = ">=3.0.0" },
+    { name = "langgraph-checkpoint-mysql", extras = ["aiomysql"], marker = "extra == 'mysql-async'", specifier = ">=3.0.0" },
+    { name = "langgraph-checkpoint-mysql", extras = ["pymysql"], specifier = ">=3.0.0" },
     { name = "langgraph-checkpoint-sqlite", specifier = ">=3.0.3" },
     { name = "langgraph-cli", specifier = ">=0.4.14" },
     { name = "langgraph-runtime-inmem", specifier = ">=0.22.1" },
@@ -864,7 +885,7 @@ requires-dist = [
     { name = "tavily-python", specifier = ">=0.7.17" },
     { name = "tiktoken", specifier = ">=0.8.0" },
 ]
-provides-extras = ["pymupdf"]
+provides-extras = ["pymupdf", "mysql-async"]
 
 [[package]]
 name = "defusedxml"
@@ -1822,6 +1843,28 @@ dependencies = [
 sdist = { url = "https://mirrors.tencent.com/pypi/packages/98/76/55a18c59dedf39688d72c4b06af73a5e3ea0d1a01bc867b88fbf0659f203/langgraph_checkpoint-4.0.0.tar.gz", hash = "sha256:814d1bd050fac029476558d8e68d87bce9009a0262d04a2c14b918255954a624" }
 wheels = [
     { url = "https://mirrors.tencent.com/pypi/packages/4a/de/ddd53b7032e623f3c7bcdab2b44e8bf635e468f62e10e5ff1946f62c9356/langgraph_checkpoint-4.0.0-py3-none-any.whl", hash = "sha256:3fa9b2635a7c5ac28b338f631abf6a030c3b508b7b9ce17c22611513b589c784" },
+]
+
+[[package]]
+name = "langgraph-checkpoint-mysql"
+version = "3.0.0"
+source = { registry = "https://mirrors.tencent.com/pypi/simple" }
+dependencies = [
+    { name = "langgraph-checkpoint" },
+    { name = "orjson" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://mirrors.tencent.com/pypi/packages/e0/4e/0a6c78e5d3f2ca1525903c2363e721873594b6b77dd83537a6369193c474/langgraph_checkpoint_mysql-3.0.0.tar.gz", hash = "sha256:006aaa089f4c2fbd7b2c113b800ccd3dbb95f92203e656451677256b4b4f880f" }
+wheels = [
+    { url = "https://mirrors.tencent.com/pypi/packages/08/68/343103a7fae05523f9cecabbec2babdb737e66b4bf6ea48ae00c685ed11c/langgraph_checkpoint_mysql-3.0.0-py3-none-any.whl", hash = "sha256:7560ccd16e7596a047e15a307cec12dbd88fdcaab45a75759e5c6adef22a27d1" },
+]
+
+[package.optional-dependencies]
+aiomysql = [
+    { name = "aiomysql" },
+]
+pymysql = [
+    { name = "pymysql" },
 ]
 
 [[package]]
@@ -3210,6 +3253,15 @@ dependencies = [
 sdist = { url = "https://mirrors.tencent.com/pypi/packages/f0/e7/8b97bf223ea2fd72efd862af3210ae3aa2fb15b39b55767de9e0a2fd0985/pymupdf4llm-1.27.2.2.tar.gz", hash = "sha256:f95e113d434958f8c63393c836fe965ad398d1fc07e7807c0a627c9ec1946e9f" }
 wheels = [
     { url = "https://mirrors.tencent.com/pypi/packages/01/fc/a4977b84f9a7e70aac4c9beed55d4693b985cef89fab7d49c896335bf158/pymupdf4llm-1.27.2.2-py3-none-any.whl", hash = "sha256:ec3bbceed21c6f86289155f29c557aa54ae1c8282c4a45d6de984f16fb4c90cb" },
+]
+
+[[package]]
+name = "pymysql"
+version = "1.1.2"
+source = { registry = "https://mirrors.tencent.com/pypi/simple" }
+sdist = { url = "https://mirrors.tencent.com/pypi/packages/f5/ae/1fe3fcd9f959efa0ebe200b8de88b5a5ce3e767e38c7ac32fb179f16a388/pymysql-1.1.2.tar.gz", hash = "sha256:4961d3e165614ae65014e361811a724e2044ad3ea3739de9903ae7c21f539f03" }
+wheels = [
+    { url = "https://mirrors.tencent.com/pypi/packages/7c/4c/ad33b92b9864cbde84f259d5df035a6447f91891f5be77788e2a3892bce3/pymysql-1.1.2-py3-none-any.whl", hash = "sha256:e6b1d89711dd51f8f74b1631fe08f039e7d76cf67a42a323d3178f0f25762ed9" },
 ]
 
 [[package]]

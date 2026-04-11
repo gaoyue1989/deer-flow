@@ -37,7 +37,9 @@ logger = logging.getLogger(__name__)
 
 SQLITE_INSTALL = "langgraph-checkpoint-sqlite is required for the SQLite checkpointer. Install it with: uv add langgraph-checkpoint-sqlite"
 POSTGRES_INSTALL = "langgraph-checkpoint-postgres is required for the PostgreSQL checkpointer. Install it with: uv add langgraph-checkpoint-postgres psycopg[binary] psycopg-pool"
+MYSQL_INSTALL = "langgraph-checkpoint-mysql is required for the MySQL checkpointer. Install it with: uv add langgraph-checkpoint-mysql[pymysql]"
 POSTGRES_CONN_REQUIRED = "checkpointer.connection_string is required for the postgres backend"
+MYSQL_CONN_REQUIRED = "checkpointer.connection_string is required for the mysql backend"
 
 # ---------------------------------------------------------------------------
 # Sync factory
@@ -85,6 +87,21 @@ def _sync_checkpointer_cm(config: CheckpointerConfig) -> Iterator[Checkpointer]:
         with PostgresSaver.from_conn_string(config.connection_string) as saver:
             saver.setup()
             logger.info("Checkpointer: using PostgresSaver")
+            yield saver
+        return
+
+    if config.type == "mysql":
+        try:
+            from langgraph.checkpoint.mysql.pymysql import PyMySQLSaver
+        except ImportError as exc:
+            raise ImportError(MYSQL_INSTALL) from exc
+
+        if not config.connection_string:
+            raise ValueError(MYSQL_CONN_REQUIRED)
+
+        with PyMySQLSaver.from_conn_string(config.connection_string) as saver:
+            saver.setup()
+            logger.info("Checkpointer: using PyMySQLSaver")
             yield saver
         return
 

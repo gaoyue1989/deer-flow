@@ -32,11 +32,14 @@ dependencies = [
     "duckdb>=1.4.4",
     "langchain-google-genai>=4.2.1",
     "langgraph-checkpoint-sqlite>=3.0.3",
+    "langgraph-checkpoint-mysql[pymysql]>=3.0.0",
+    "langgraph-checkpoint-mysql[aiomysql]>=3.0.0",
     "langgraph-sdk>=0.1.51",
 ]
 
 [project.optional-dependencies]
 pymupdf = ["pymupdf4llm>=0.0.17"]
+mysql-async = ["langgraph-checkpoint-mysql[aiomysql]>=3.0.0"]
 
 [build-system]
 requires = ["hatchling"]

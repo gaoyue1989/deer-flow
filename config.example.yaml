@@ -679,6 +679,8 @@ skill_evolution:
 #              Requires: uv add langgraph-checkpoint-sqlite
 #   postgres - PostgreSQL persistence. Suitable for multi-process deployments.
 #              Requires: uv add langgraph-checkpoint-postgres psycopg[binary] psycopg-pool
+#   mysql    - MySQL persistence. Suitable for multi-process deployments.
+#              Requires: uv add langgraph-checkpoint-mysql[pymysql]
 #
 # Examples:
 #
@@ -695,6 +697,11 @@ checkpointer:
 # checkpointer:
 #   type: postgres
 #   connection_string: postgresql://user:password@localhost:5432/deerflow
+#
+# MySQL (multi-process, production):
+# checkpointer:
+#   type: mysql
+#   connection_string: mysql://user:password@localhost:3306/deerflow
 
 # ============================================================================
 # IM Channels Configuration

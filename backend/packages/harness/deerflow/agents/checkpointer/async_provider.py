@@ -25,6 +25,8 @@ from collections.abc import AsyncIterator
 from langgraph.types import Checkpointer
 
 from deerflow.agents.checkpointer.provider import (
+    MYSQL_CONN_REQUIRED,
+    MYSQL_INSTALL,
     POSTGRES_CONN_REQUIRED,
     POSTGRES_INSTALL,
     SQLITE_INSTALL,
@@ -72,6 +74,21 @@ async def _async_checkpointer(config) -> AsyncIterator[Checkpointer]:
 
         async with AsyncPostgresSaver.from_conn_string(config.connection_string) as saver:
             await saver.setup()
+            yield saver
+        return
+
+    if config.type == "mysql":
+        try:
+            from langgraph.checkpoint.mysql.aio import AIOMySQLSaver
+        except ImportError as exc:
+            raise ImportError(MYSQL_INSTALL) from exc
+
+        if not config.connection_string:
+            raise ValueError(MYSQL_CONN_REQUIRED)
+
+        async with AIOMySQLSaver.from_conn_string(config.connection_string) as saver:
+            await saver.setup()
+            logger.info("Checkpointer: using AIOMySQLSaver")
             yield saver
         return
 
