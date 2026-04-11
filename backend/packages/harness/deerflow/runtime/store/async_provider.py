@@ -24,7 +24,15 @@ from collections.abc import AsyncIterator
 from langgraph.store.base import BaseStore
 
 from deerflow.config.app_config import get_app_config
-from deerflow.runtime.store.provider import POSTGRES_CONN_REQUIRED, POSTGRES_STORE_INSTALL, SQLITE_STORE_INSTALL, ensure_sqlite_parent_dir, resolve_sqlite_conn_str
+from deerflow.runtime.store.provider import (
+    MYSQL_CONN_REQUIRED,
+    MYSQL_STORE_INSTALL,
+    POSTGRES_CONN_REQUIRED,
+    POSTGRES_STORE_INSTALL,
+    SQLITE_STORE_INSTALL,
+    ensure_sqlite_parent_dir,
+    resolve_sqlite_conn_str,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +82,21 @@ async def _async_store(config) -> AsyncIterator[BaseStore]:
         async with AsyncPostgresStore.from_conn_string(config.connection_string) as store:
             await store.setup()
             logger.info("Store: using AsyncPostgresStore")
+            yield store
+        return
+
+    if config.type == "mysql":
+        try:
+            from langgraph.store.mysql.aio import AIOMySQLStore
+        except ImportError as exc:
+            raise ImportError(MYSQL_STORE_INSTALL) from exc
+
+        if not config.connection_string:
+            raise ValueError(MYSQL_CONN_REQUIRED)
+
+        async with AIOMySQLStore.from_conn_string(config.connection_string) as store:
+            await store.setup()
+            logger.info("Store: using AIOMySQLStore")
             yield store
         return
 

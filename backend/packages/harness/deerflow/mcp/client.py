@@ -19,6 +19,9 @@ def build_server_params(server_name: str, config: McpServerConfig) -> dict[str, 
         Dictionary of server parameters for langchain-mcp-adapters.
     """
     transport_type = config.type or "stdio"
+    # Map streamablehttp to http as it's just an alias in MCP spec
+    if transport_type == "streamablehttp":
+        transport_type = "http"
     params: dict[str, Any] = {"transport": transport_type}
 
     if transport_type == "stdio":

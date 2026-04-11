@@ -37,7 +37,9 @@ logger = logging.getLogger(__name__)
 
 SQLITE_STORE_INSTALL = "langgraph-checkpoint-sqlite is required for the SQLite store. Install it with: uv add langgraph-checkpoint-sqlite"
 POSTGRES_STORE_INSTALL = "langgraph-checkpoint-postgres is required for the PostgreSQL store. Install it with: uv add langgraph-checkpoint-postgres psycopg[binary] psycopg-pool"
+MYSQL_STORE_INSTALL = "langgraph-checkpoint-mysql is required for the MySQL store. Install it with: uv add langgraph-checkpoint-mysql[pymysql]"
 POSTGRES_CONN_REQUIRED = "checkpointer.connection_string is required for the postgres backend"
+MYSQL_CONN_REQUIRED = "checkpointer.connection_string is required for the mysql backend"
 
 # ---------------------------------------------------------------------------
 # Sync factory
@@ -86,6 +88,21 @@ def _sync_store_cm(config) -> Iterator[BaseStore]:
         with PostgresStore.from_conn_string(config.connection_string) as store:
             store.setup()
             logger.info("Store: using PostgresStore")
+            yield store
+        return
+
+    if config.type == "mysql":
+        try:
+            from langgraph.store.mysql import PyMySQLStore
+        except ImportError as exc:
+            raise ImportError(MYSQL_STORE_INSTALL) from exc
+
+        if not config.connection_string:
+            raise ValueError(MYSQL_CONN_REQUIRED)
+
+        with PyMySQLStore.from_conn_string(config.connection_string) as store:
+            store.setup()
+            logger.info("Store: using PyMySQLStore")
             yield store
         return
 
