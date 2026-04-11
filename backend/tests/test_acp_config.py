@@ -106,8 +106,15 @@ def test_acp_agent_config_auto_approve_permissions():
 
 
 def test_acp_agent_config_missing_command_raises():
-    with pytest.raises(ValidationError):
-        ACPAgentConfig(description="No command provided")
+    """Command is optional when url is provided (HTTP mode)."""
+    # Should not raise when url is provided
+    cfg = ACPAgentConfig(description="HTTP mode agent", url="http://localhost:3020")
+    assert cfg.command is None
+    assert cfg.url == "http://localhost:3020"
+
+    # Should raise when both command and url are missing
+    with pytest.raises(ValueError):
+        ACPAgentConfig(description="No command or url")
 
 
 def test_acp_agent_config_missing_description_raises():

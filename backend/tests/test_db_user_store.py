@@ -1,9 +1,11 @@
 """Tests for DBUserStore database-backed user store."""
 
-import pytest
 from uuid import uuid4
-from app.gateway.users.db_store import DBUserStore
+
+import pytest
+
 from app.gateway.auth.models import UserRole
+from app.gateway.users.db_store import DBUserStore
 from deerflow.config.checkpointer_config import CheckpointerConfig, set_checkpointer_config
 
 
@@ -62,7 +64,7 @@ class TestDBUserStore:
         email = "getbyid@example.com"
         password_hash = "hashed"
 
-        created = db_user_store.create(user_id, email, password_hash)
+        db_user_store.create(user_id, email, password_hash)
         fetched = db_user_store.get_by_id(user_id)
 
         assert fetched is not None
@@ -81,7 +83,7 @@ class TestDBUserStore:
         email = "getbyemail@example.com"
         password_hash = "hashed_email"
 
-        created = db_user_store.create(user_id, email, password_hash)
+        db_user_store.create(user_id, email, password_hash)
         fetched = db_user_store.get_by_email(email)
 
         assert fetched is not None
@@ -99,7 +101,7 @@ class TestDBUserStore:
         email = "original@example.com"
         password_hash = "original_hash"
 
-        user = db_user_store.create(user_id, email, password_hash)
+        db_user_store.create(user_id, email, password_hash)
         updated = db_user_store.update(user_id, email="updated@example.com")
 
         assert updated["email"] == "updated@example.com"

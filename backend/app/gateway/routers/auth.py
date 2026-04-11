@@ -14,7 +14,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 from app.gateway.auth import UserRole, create_access_token, get_optional_user, hash_password, verify_password
 from app.gateway.auth.models import TokenData
-from app.gateway.users import UserStore, DBUserStore
+from app.gateway.users import DBUserStore, UserStore
 
 logger = logging.getLogger(__name__)
 

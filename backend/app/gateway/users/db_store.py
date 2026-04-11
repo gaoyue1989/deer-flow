@@ -18,12 +18,12 @@ import logging
 import sqlite3
 import threading
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from app.gateway.auth.models import UserRole
-from deerflow.config.checkpointer_config import get_checkpointer_config, CheckpointerConfig
-from deerflow.runtime.store._sqlite_utils import resolve_sqlite_conn_str, ensure_sqlite_parent_dir
+from deerflow.config.checkpointer_config import CheckpointerConfig, get_checkpointer_config
+from deerflow.runtime.store._sqlite_utils import ensure_sqlite_parent_dir, resolve_sqlite_conn_str
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +170,7 @@ class DBUserStore:
                     cur.execute(create_index_sql)
                     self._conn.commit()
 
-    def get_by_id(self, user_id: UUID | str) -> Optional[dict[str, Any]]:
+    def get_by_id(self, user_id: UUID | str) -> dict[str, Any] | None:
         """Get a user by ID."""
         user_id_str = str(user_id) if isinstance(user_id, UUID) else user_id
 
@@ -193,7 +193,7 @@ class DBUserStore:
 
             return self._row_to_dict(row)
 
-    def get_by_email(self, email: str) -> Optional[dict[str, Any]]:
+    def get_by_email(self, email: str) -> dict[str, Any] | None:
         """Get a user by email."""
         with self._lock:
             if self._is_sqlite:
@@ -220,7 +220,7 @@ class DBUserStore:
         email: str,
         hashed_password: str,
         role: UserRole = UserRole.USER,
-        quota_limits: Optional[dict[str, int | float]] = None,
+        quota_limits: dict[str, int | float] | None = None,
     ) -> dict[str, Any]:
         """Create a new user."""
         with self._lock:
