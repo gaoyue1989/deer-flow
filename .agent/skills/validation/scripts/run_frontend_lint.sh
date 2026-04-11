@@ -5,7 +5,7 @@
 set -e
 
 OUTPUT_FILE="${1:-/tmp/frontend_lint_results.txt}"
-FRONTEND_DIR="$(cd "$(dirname "$0")/../.." && pwd)/frontend"
+FRONTEND_DIR="$(cd "$(dirname "$0")/../../../.." && pwd)/frontend"
 
 echo "=========================================="
 echo "  Running Frontend Linting"

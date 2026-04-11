@@ -5,7 +5,7 @@
 set -e
 
 OUTPUT_FILE="${1:-/tmp/backend_lint_results.txt}"
-BACKEND_DIR="$(cd "$(dirname "$0")/../.." && pwd)/backend"
+BACKEND_DIR="$(cd "$(dirname "$0")/../../../.." && pwd)/backend"
 
 echo "=========================================="
 echo "  Running Backend Linting (ruff)"
