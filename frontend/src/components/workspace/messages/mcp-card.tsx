@@ -91,10 +91,7 @@ function parseWeatherResult(
   const sources = refer?.sources as string[] | undefined;
 
   return {
-    city:
-      (args.kwargs as Record<string, unknown>)?.city ??
-      (args)?.city ??
-      "",
+    city: (args.kwargs as Record<string, unknown>)?.city ?? args?.city ?? "",
     code: metadata.code,
     updateTime: metadata.updateTime,
     fxLink: metadata.fxLink,
@@ -169,8 +166,8 @@ function parseMCDMeals(
 
   return {
     datetime: raw.datetime,
-    storeCode: (args)?.storeCode ?? "",
-    storeName: (args)?.storeName ?? "",
+    storeCode: args?.storeCode ?? "",
+    storeName: args?.storeName ?? "",
     categories: parsedCategories,
   };
 }
