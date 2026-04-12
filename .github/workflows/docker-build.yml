@@ -197,15 +197,12 @@ jobs:
             const perPage = 100;
 
             while (true) {
-              const { data: versions } = await github.rest.packages.getAllPackageVersionsForPackageOwnedByRepo({
-                owner,
-                repo,
-                package_type: 'container',
-                package_name: packageName,
+              const response = await github.request(`GET /repos/${owner}/${repo}/packages/container/${packageName}/versions`, {
                 per_page: perPage,
                 page: page,
               });
 
+              const versions = response.data;
               if (versions.length === 0) break;
               allVersions.push(...versions);
               if (versions.length < perPage) break;
@@ -228,12 +225,7 @@ jobs:
 
             for (const version of toDelete) {
               try {
-                await github.request('DELETE /repos/{owner}/{repo}/packages/container/{package_name}/versions/{version_id}', {
-                  owner,
-                  repo,
-                  package_name: packageName,
-                  version_id: version.id,
-                });
+                await github.request(`DELETE /repos/${owner}/${repo}/packages/container/${packageName}/versions/${version.id}`);
                 console.log(`Deleted version ${version.id} (created: ${version.created_at})`);
               } catch (err) {
                 console.error(`Failed to delete version ${version.id}: ${err.message}`);
