@@ -55,7 +55,7 @@ def _make_sync_tool_wrapper(coro: Callable[..., Any], tool_name: str) -> Callabl
 
 def _attach_display_config_to_tools(tools: list, extensions_config) -> None:
     """Attach display configuration (card_title, icon, template_path) to MCP tools.
-    
+
     This reads the tools config from extensions_config and attaches display metadata
     to each tool's metadata dict for frontend consumption.
     """
@@ -73,9 +73,9 @@ def _attach_display_config_to_tools(tools: list, extensions_config) -> None:
                         "server_name": server_name,
                         "tool_name": mcp_tool_name,
                     }
-                    
+
                     # Try to attach to metadata first
-                    if hasattr(tool, 'metadata') and isinstance(tool.metadata, dict):
+                    if hasattr(tool, "metadata") and isinstance(tool.metadata, dict):
                         tool.metadata["mcp_display"] = display_info
                     else:
                         # Fallback: use object.__setattr__ for Pydantic models

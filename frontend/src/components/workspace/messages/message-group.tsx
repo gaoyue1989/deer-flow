@@ -24,11 +24,11 @@ import {
 import { CodeBlock } from "@/components/ai-elements/code-block";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/core/i18n/hooks";
+import { useMCPToolTemplates } from "@/core/mcp";
 import {
   extractReasoningContentFromMessage,
   findToolCallResult,
 } from "@/core/messages/utils";
-import { useMCPToolTemplates } from "@/core/mcp";
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
 import { extractTitleFromMarkdown } from "@/core/utils/markdown";
 import { env } from "@/env";
@@ -38,8 +38,8 @@ import { useArtifacts } from "../artifacts";
 import { FlipDisplay } from "../flip-display";
 import { Tooltip } from "../tooltip";
 
-import { MCPCard } from "./mcp-card";
 import { MarkdownContent } from "./markdown-content";
+import { MCPCard } from "./mcp-card";
 
 export function MessageGroup({
   className,

@@ -2,14 +2,13 @@
 
 import "./mcp-card.css";
 import "./mcd-card.css";
+import * as lucideIcons from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Mustache from "mustache";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChainOfThoughtSearchResult } from "@/components/ai-elements/chain-of-thought";
 import { ChainOfThoughtStep } from "@/components/ai-elements/chain-of-thought";
-import * as lucideIcons from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-
 import { useMCPToolTemplates } from "@/core/mcp";
 
 export interface MCPCardAction {
@@ -75,7 +74,7 @@ function parseResult(
       return { raw };
     }
   }
-  return raw || {};
+  return raw ?? {};
 }
 
 function parseWeatherResult(
@@ -93,13 +92,13 @@ function parseWeatherResult(
 
   return {
     city:
-      (args.kwargs as Record<string, unknown>)?.city ||
-      (args as Record<string, unknown>)?.city ||
+      (args.kwargs as Record<string, unknown>)?.city ??
+      (args)?.city ??
       "",
     code: metadata.code,
     updateTime: metadata.updateTime,
     fxLink: metadata.fxLink,
-    source: sources?.[0] || "",
+    source: sources?.[0] ?? "",
     ...now,
   };
 }
@@ -155,9 +154,9 @@ function parseMCDMeals(
         const mealDetail = mealsDict[code];
         return {
           code,
-          mealName: mealDetail?.name || code,
+          mealName: mealDetail?.name ?? code,
           price: mealDetail?.currentPrice,
-          tags: meal.tags || [],
+          tags: meal.tags ?? [],
         };
       },
     );
@@ -170,8 +169,8 @@ function parseMCDMeals(
 
   return {
     datetime: raw.datetime,
-    storeCode: (args as Record<string, unknown>)?.storeCode || "",
-    storeName: (args as Record<string, unknown>)?.storeName || "",
+    storeCode: (args)?.storeCode ?? "",
+    storeName: (args)?.storeName ?? "",
     categories: parsedCategories,
   };
 }
@@ -240,7 +239,7 @@ export function MCPCard({ toolName, args, result, onAction }: MCPCardProps) {
       if (!target || !onAction || !template) return;
 
       const action = target.getAttribute("data-action");
-      const paramsStr = target.getAttribute("data-params") || "{}";
+      const paramsStr = target.getAttribute("data-params") ?? "{}";
 
       if (!action) return;
 
@@ -268,8 +267,8 @@ export function MCPCard({ toolName, args, result, onAction }: MCPCardProps) {
   if (isLoading) {
     return (
       <ChainOfThoughtStep
-        label={template.card_title || toolName}
-        icon={getLucideIcon(template.icon) || lucideIcons.WrenchIcon}
+        label={template.card_title ?? toolName}
+        icon={getLucideIcon(template.icon) ?? lucideIcons.WrenchIcon}
       >
         <ChainOfThoughtSearchResult>
           Loading template...
@@ -281,11 +280,11 @@ export function MCPCard({ toolName, args, result, onAction }: MCPCardProps) {
   if (error || !templateContent) {
     return (
       <ChainOfThoughtStep
-        label={template.card_title || toolName}
-        icon={getLucideIcon(template.icon) || lucideIcons.WrenchIcon}
+        label={template.card_title ?? toolName}
+        icon={getLucideIcon(template.icon) ?? lucideIcons.WrenchIcon}
       >
         <ChainOfThoughtSearchResult className="text-destructive">
-          {error || "Template not found"}
+          {error ?? "Template not found"}
         </ChainOfThoughtSearchResult>
       </ChainOfThoughtStep>
     );
@@ -310,7 +309,7 @@ export function MCPCard({ toolName, args, result, onAction }: MCPCardProps) {
   }
 
   const view = {
-    args: args || {},
+    args: args ?? {},
     result: flattenedResult,
   };
 
@@ -320,8 +319,8 @@ export function MCPCard({ toolName, args, result, onAction }: MCPCardProps) {
   } catch (renderError) {
     return (
       <ChainOfThoughtStep
-        label={template.card_title || toolName}
-        icon={getLucideIcon(template.icon) || lucideIcons.WrenchIcon}
+        label={template.card_title ?? toolName}
+        icon={getLucideIcon(template.icon) ?? lucideIcons.WrenchIcon}
       >
         <ChainOfThoughtSearchResult className="text-destructive">
           Template render error: {(renderError as Error).message}
@@ -330,11 +329,11 @@ export function MCPCard({ toolName, args, result, onAction }: MCPCardProps) {
     );
   }
 
-  const IconComponent = getLucideIcon(template.icon) || lucideIcons.WrenchIcon;
+  const IconComponent = getLucideIcon(template.icon) ?? lucideIcons.WrenchIcon;
 
   return (
     <ChainOfThoughtStep
-      label={template.card_title || toolName}
+      label={template.card_title ?? toolName}
       icon={IconComponent}
     >
       <div

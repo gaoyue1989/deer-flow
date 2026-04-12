@@ -180,6 +180,7 @@ async def update_mcp_configuration(request: McpConfigUpdateRequest) -> McpConfig
         logger.error(f"Failed to update MCP configuration: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to update MCP configuration: {str(e)}")
 
+
 @router.get(
     "/mcp/templates/{tool_name}",
     summary="Get MCP Tool Template Content",
@@ -229,4 +230,3 @@ async def get_mcp_tool_template(tool_name: str) -> dict:
     except Exception as e:
         logger.error(f"Failed to read template for tool {tool_name}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to read template: {str(e)}")
-
