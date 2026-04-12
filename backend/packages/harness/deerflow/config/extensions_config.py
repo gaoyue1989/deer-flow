@@ -31,6 +31,15 @@ class McpOAuthConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+class McpToolDisplayConfig(BaseModel):
+    """Display configuration for a single MCP tool."""
+
+    card_title: str = Field(default="", description="Title displayed on the card")
+    icon: str = Field(default="wrench", description="Icon name from lucide-react")
+    template_path: str = Field(default="", description="Path to the HTML template file (relative to project root)")
+    model_config = ConfigDict(extra="allow")
+
+
 class McpServerConfig(BaseModel):
     """Configuration for a single MCP server."""
 
@@ -43,6 +52,10 @@ class McpServerConfig(BaseModel):
     headers: dict[str, str] = Field(default_factory=dict, description="HTTP headers to send (for sse or http type)")
     oauth: McpOAuthConfig | None = Field(default=None, description="OAuth configuration (for sse or http type)")
     description: str = Field(default="", description="Human-readable description of what this MCP server provides")
+    tools: dict[str, McpToolDisplayConfig] = Field(
+        default_factory=dict,
+        description="Map of tool name to display configuration (card title, icon, template)",
+    )
     model_config = ConfigDict(extra="allow")
 
 

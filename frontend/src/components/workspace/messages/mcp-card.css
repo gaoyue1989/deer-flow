@@ -1,0 +1,128 @@
+.mcp-card {
+  border-radius: 0.75rem;
+  border: 1px solid var(--border, #e5e7eb);
+  background: linear-gradient(135deg, var(--card, #ffffff) 0%, var(--muted, #f8fafc) 100%);
+  padding: 1rem;
+  font-size: 0.875rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.mcp-card-header {
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  padding-bottom: 0.625rem;
+}
+
+.mcp-card-city {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--foreground, #111827);
+}
+
+.mcp-card-update {
+  color: var(--muted-foreground, #6b7280);
+  font-size: 0.75rem;
+}
+
+.mcp-card-body {
+  margin-bottom: 0.75rem;
+}
+
+.mcp-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mcp-card-temp-section {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.mcp-temp-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--foreground, #111827);
+}
+
+.mcp-temp-unit {
+  font-size: 1.25rem;
+  color: var(--muted-foreground, #6b7280);
+  font-weight: 400;
+}
+
+.mcp-weather-text {
+  margin-left: 0.5rem;
+  font-size: 1rem;
+  color: var(--muted-foreground, #6b7280);
+}
+
+.mcp-card-details {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.mcp-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.375rem 0.5rem;
+  background-color: var(--muted, #f3f4f6);
+  border-radius: 0.375rem;
+}
+
+.mcp-detail-label {
+  font-size: 0.6875rem;
+  color: var(--muted-foreground, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.mcp-detail-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground, #111827);
+}
+
+.mcp-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border, #e5e7eb);
+  padding-top: 0.625rem;
+}
+
+.mcp-link {
+  color: var(--primary, #3b82f6);
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+
+.mcp-link:hover {
+  color: var(--primary-hover, #2563eb);
+  text-decoration: underline;
+}
+
+.mcp-card-source {
+  font-size: 0.6875rem;
+  color: var(--muted-foreground, #6b7280);
+}
+
+@media (max-width: 480px) {
+  .mcp-card-details {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .mcp-temp-value {
+    font-size: 2rem;
+  }
+}

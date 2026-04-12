@@ -53,6 +53,39 @@ def _make_sync_tool_wrapper(coro: Callable[..., Any], tool_name: str) -> Callabl
     return sync_wrapper
 
 
+def _attach_display_config_to_tools(tools: list, extensions_config) -> None:
+    """Attach display configuration (card_title, icon, template_path) to MCP tools.
+    
+    This reads the tools config from extensions_config and attaches display metadata
+    to each tool's metadata dict for frontend consumption.
+    """
+    for server_name, server_config in extensions_config.mcp_servers.items():
+        if not server_config.tools:
+            continue
+        for tool in tools:
+            tool_name = tool.name
+            for mcp_tool_name, display_config in server_config.tools.items():
+                if tool_name == mcp_tool_name or tool_name.endswith(f"__{mcp_tool_name}"):
+                    display_info = {
+                        "card_title": display_config.card_title,
+                        "icon": display_config.icon,
+                        "template_path": display_config.template_path,
+                        "server_name": server_name,
+                        "tool_name": mcp_tool_name,
+                    }
+                    
+                    # Try to attach to metadata first
+                    if hasattr(tool, 'metadata') and isinstance(tool.metadata, dict):
+                        tool.metadata["mcp_display"] = display_info
+                    else:
+                        # Fallback: use object.__setattr__ for Pydantic models
+                        try:
+                            object.__setattr__(tool, "mcp_display", display_info)
+                        except Exception as e:
+                            logger.warning(f"Could not attach display config to tool '{tool_name}': {e}")
+                    break
+
+
 async def get_mcp_tools() -> list[BaseTool]:
     """Get all tools from enabled MCP servers.
 
@@ -105,6 +138,9 @@ async def get_mcp_tools() -> list[BaseTool]:
         for tool in tools:
             if getattr(tool, "func", None) is None and getattr(tool, "coroutine", None) is not None:
                 tool.func = _make_sync_tool_wrapper(tool.coroutine, tool.name)
+
+        # Attach display configuration to tools
+        _attach_display_config_to_tools(tools, extensions_config)
 
         return tools
 

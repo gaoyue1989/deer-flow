@@ -31,6 +31,14 @@ class McpOAuthConfigResponse(BaseModel):
     extra_token_params: dict[str, str] = Field(default_factory=dict, description="Additional form params sent to token endpoint")
 
 
+class McpToolDisplayConfigResponse(BaseModel):
+    """Response model for MCP tool display configuration."""
+
+    card_title: str = Field(default="", description="Title displayed on the card")
+    icon: str = Field(default="wrench", description="Icon name from lucide-react")
+    template_path: str = Field(default="", description="Path to the HTML template file")
+
+
 class McpServerConfigResponse(BaseModel):
     """Response model for MCP server configuration."""
 
@@ -43,6 +51,10 @@ class McpServerConfigResponse(BaseModel):
     headers: dict[str, str] = Field(default_factory=dict, description="HTTP headers to send (for sse or http type)")
     oauth: McpOAuthConfigResponse | None = Field(default=None, description="OAuth configuration for MCP HTTP/SSE servers")
     description: str = Field(default="", description="Human-readable description of what this MCP server provides")
+    tools: dict[str, McpToolDisplayConfigResponse] = Field(
+        default_factory=dict,
+        description="Map of tool name to display configuration",
+    )
 
 
 class McpConfigResponse(BaseModel):
@@ -167,3 +179,54 @@ async def update_mcp_configuration(request: McpConfigUpdateRequest) -> McpConfig
     except Exception as e:
         logger.error(f"Failed to update MCP configuration: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to update MCP configuration: {str(e)}")
+
+@router.get(
+    "/mcp/templates/{tool_name}",
+    summary="Get MCP Tool Template Content",
+    description="Retrieve the HTML template content for a specific MCP tool.",
+)
+async def get_mcp_tool_template(tool_name: str) -> dict:
+    """Get the HTML template content for an MCP tool.
+
+    Args:
+        tool_name: The name of the MCP tool.
+
+    Returns:
+        Dictionary with "content" key containing the template HTML.
+
+    Raises:
+        HTTPException: 404 if template not found, 500 on file read error.
+    """
+    config = get_extensions_config()
+
+    # Find the template path for the given tool name
+    template_path = None
+    for server_name, server_config in config.mcp_servers.items():
+        if server_config.tools and tool_name in server_config.tools:
+            template_path = server_config.tools[tool_name].template_path
+            break
+
+    if not template_path:
+        raise HTTPException(status_code=404, detail=f"No template configured for tool: {tool_name}")
+
+    try:
+        # Resolve relative paths relative to project root
+        path = Path(template_path)
+        if not path.is_absolute():
+            # Try relative to current working directory (project root)
+            path = Path.cwd() / template_path
+
+        if not path.exists():
+            raise HTTPException(status_code=404, detail=f"Template file not found: {template_path}")
+
+        with open(path, "r", encoding="utf-8") as f:
+            template_content = f.read()
+
+        return {"content": template_content}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to read template for tool {tool_name}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to read template: {str(e)}")
+

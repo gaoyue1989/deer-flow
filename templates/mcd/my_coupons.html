@@ -1,0 +1,44 @@
+<div class="mcp-card mcp-card-mcd mcp-card-coupons">
+  <div class="mcp-card-header">
+    <span class="mcp-card-title">🎫 我的优惠券</span>
+    <span class="mcp-card-count">共 {{result.totalCount}} 张</span>
+  </div>
+  
+  <div class="mcp-card-body">
+    {{#result.coupons}}
+    <div class="mcd-coupon-item">
+      <div class="mcd-coupon-badge">
+        {{#status}}<span class="mcd-status mcd-status-active">可用</span>{{/status}}
+        {{^status}}<span class="mcd-status mcd-status-expired">已过期</span>{{/status}}
+      </div>
+      <div class="mcd-coupon-content">
+        <div class="mcd-coupon-name">{{couponName}}</div>
+        <div class="mcd-coupon-desc">{{couponDesc}}</div>
+        <div class="mcd-coupon-meta">
+          <span class="mcd-meta-item">📅 有效期至: {{endTime}}</span>
+          {{#storeId}}<span class="mcd-meta-item">🏪 适用门店: {{storeId}}</span>{{/storeId}}
+        </div>
+      </div>
+      <div class="mcd-coupon-action">
+        {{#status}}
+        <button class="mcd-btn mcd-btn-primary" data-action="use_coupon" data-params='{"couponId": "{{couponId}}", "couponName": "{{couponName}}"}'>
+          去使用
+        </button>
+        {{/status}}
+      </div>
+    </div>
+    {{/result.coupons}}
+    
+    {{^result.coupons}}
+    <div class="mcd-empty-state">
+      <div class="mcd-empty-icon">🎫</div>
+      <div class="mcd-empty-text">暂无优惠券</div>
+      <button class="mcd-btn mcd-btn-secondary" data-action="go_get_coupons">去领券</button>
+    </div>
+    {{/result.coupons}}
+  </div>
+  
+  <div class="mcp-card-footer">
+    <button class="mcd-btn mcd-btn-secondary" data-action="view_more_coupons">查看更多优惠券</button>
+  </div>
+</div>

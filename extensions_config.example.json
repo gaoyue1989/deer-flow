@@ -36,6 +36,19 @@
       ],
       "env": {},
       "description": "PostgreSQL database access"
+    },
+    "weather": {
+      "enabled": false,
+      "type": "sse",
+      "url": "http://localhost:9001/mcp/sse",
+      "description": "Weather query service",
+      "tools": {
+        "get_weather": {
+          "card_title": "Weather Info",
+          "icon": "cloud-sun",
+          "template_path": "/templates/weather/get_weather.html"
+        }
+      }
     }
   },
   "skills": {}

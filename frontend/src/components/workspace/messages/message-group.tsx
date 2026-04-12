@@ -28,6 +28,7 @@ import {
   extractReasoningContentFromMessage,
   findToolCallResult,
 } from "@/core/messages/utils";
+import { useMCPToolTemplates } from "@/core/mcp";
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
 import { extractTitleFromMarkdown } from "@/core/utils/markdown";
 import { env } from "@/env";
@@ -37,6 +38,7 @@ import { useArtifacts } from "../artifacts";
 import { FlipDisplay } from "../flip-display";
 import { Tooltip } from "../tooltip";
 
+import { MCPCard } from "./mcp-card";
 import { MarkdownContent } from "./markdown-content";
 
 export function MessageGroup({
@@ -203,6 +205,7 @@ function ToolCall({
   const { t } = useI18n();
   const { setOpen, autoOpen, autoSelect, selectedArtifact, select } =
     useArtifacts();
+  const { getTemplate } = useMCPToolTemplates();
 
   if (name === "web_search") {
     let label: React.ReactNode = t.toolCalls.searchForRelatedInfo;
@@ -411,6 +414,10 @@ function ToolCall({
       ></ChainOfThoughtStep>
     );
   } else {
+    const mcpTemplate = getTemplate(name);
+    if (mcpTemplate) {
+      return <MCPCard toolName={name} args={args} result={result} />;
+    }
     const description: string | undefined = (args as { description: string })
       ?.description;
     return (

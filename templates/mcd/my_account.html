@@ -1,0 +1,70 @@
+<div class="mcp-card mcp-card-mcd mcp-card-account">
+  <div class="mcp-card-header">
+    <span class="mcp-card-title">👤 我的麦享会账户</span>
+    <span class="mcp-card-time">{{result.datetime}}</span>
+  </div>
+  
+  <div class="mcp-card-body">
+    <div class="mcd-account-overview">
+      <div class="mcd-points-main">
+        <div class="mcd-points-value">{{result.availablePoint}}</div>
+        <div class="mcd-points-label">可用积分</div>
+      </div>
+      <div class="mcd-points-currency">{{result.currency}}</div>
+    </div>
+    
+    <div class="mcd-account-details">
+      <div class="mcd-detail-grid">
+        <div class="mcd-detail-card">
+          <div class="mcd-detail-icon">📈</div>
+          <div class="mcd-detail-info">
+            <div class="mcd-detail-label">累计积分</div>
+            <div class="mcd-detail-value">{{result.accumulativePoint}}</div>
+          </div>
+        </div>
+        <div class="mcd-detail-card">
+          <div class="mcd-detail-icon">💰</div>
+          <div class="mcd-detail-info">
+            <div class="mcd-detail-label">已使用</div>
+            <div class="mcd-detail-value">{{result.usedPoint}}</div>
+          </div>
+        </div>
+        <div class="mcd-detail-card">
+          <div class="mcd-detail-icon">⏰</div>
+          <div class="mcd-detail-info">
+            <div class="mcd-detail-label">本月将过期</div>
+            <div class="mcd-detail-value mcd-warning">{{result.currentMouthExpirePoint}}</div>
+          </div>
+        </div>
+        <div class="mcd-detail-card">
+          <div class="mcd-detail-icon">📅</div>
+          <div class="mcd-detail-info">
+            <div class="mcd-detail-label">下月将过期</div>
+            <div class="mcd-detail-value">{{result.nextMouthExpirePoint}}</div>
+          </div>
+        </div>
+        <div class="mcd-detail-card">
+          <div class="mcd-detail-icon">❄️</div>
+          <div class="mcd-detail-info">
+            <div class="mcd-detail-label">冻结积分</div>
+            <div class="mcd-detail-value">{{result.frozenPoint}}</div>
+          </div>
+        </div>
+        <div class="mcd-detail-card">
+          <div class="mcd-detail-icon">📉</div>
+          <div class="mcd-detail-info">
+            <div class="mcd-detail-label">已过期</div>
+            <div class="mcd-detail-value">{{result.expiredPoint}}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="mcp-card-footer">
+    <button class="mcd-btn mcd-btn-primary" data-action="view_points_products" data-params='{}'>
+      积分兑换
+    </button>
+    <a href="https://www.mcdonalds.com.cn" target="_blank" class="mcd-link">麦享会官网 →</a>
+  </div>
+</div>

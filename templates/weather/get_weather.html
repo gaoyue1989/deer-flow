@@ -1,0 +1,50 @@
+<div class="mcp-card mcp-card-weather">
+  <div class="mcp-card-header">
+    <span class="mcp-card-city">{{result.city}}</span>
+    <span class="mcp-card-update">{{result.updateTime}}</span>
+  </div>
+  
+  <div class="mcp-card-body">
+    <div class="mcp-card-main">
+      <div class="mcp-card-temp-section">
+        <span class="mcp-temp-value">{{result.temp}}</span>
+        <span class="mcp-temp-unit">°C</span>
+        <span class="mcp-weather-text">{{result.text}}</span>
+      </div>
+      
+      <div class="mcp-card-details">
+        <div class="mcp-detail-item">
+          <span class="mcp-detail-label">体感温度</span>
+          <span class="mcp-detail-value">{{result.feelsLike}}°C</span>
+        </div>
+        <div class="mcp-detail-item">
+          <span class="mcp-detail-label">湿度</span>
+          <span class="mcp-detail-value">{{result.humidity}}%</span>
+        </div>
+        <div class="mcp-detail-item">
+          <span class="mcp-detail-label">风向</span>
+          <span class="mcp-detail-value">{{result.windDir}} {{result.windScale}}级</span>
+        </div>
+        <div class="mcp-detail-item">
+          <span class="mcp-detail-label">风速</span>
+          <span class="mcp-detail-value">{{result.windSpeed}}km/h</span>
+        </div>
+        <div class="mcp-detail-item">
+          <span class="mcp-detail-label">能见度</span>
+          <span class="mcp-detail-value">{{result.vis}}km</span>
+        </div>
+        <div class="mcp-detail-item">
+          <span class="mcp-detail-label">气压</span>
+          <span class="mcp-detail-value">{{result.pressure}}hPa</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="mcp-card-footer">
+    {{#result.fxLink}}
+    <a href="{{result.fxLink}}" target="_blank" class="mcp-link">查看详细天气 →</a>
+    {{/result.fxLink}}
+    <span class="mcp-card-source">数据来源: {{result.source}}</span>
+  </div>
+</div>

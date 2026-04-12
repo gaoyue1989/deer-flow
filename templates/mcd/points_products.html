@@ -1,0 +1,56 @@
+<div class="mcp-card mcp-card-mcd">
+  <div class="mcp-card-header">
+    <span class="mcp-card-title">🍟 积分兑换商品</span>
+    <span class="mcp-card-time">{{result.datetime}}</span>
+  </div>
+  
+  <div class="mcp-card-body">
+    {{#result.products}}
+    <div class="mcd-product-item">
+      <div class="mcd-product-image">
+        <img src="{{spuImage}}" alt="{{spuName}}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23f3f4f6%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2255%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2214%22>🍔</text></svg>'">
+      </div>
+      <div class="mcd-product-info">
+        <div class="mcd-product-name">{{spuName}}</div>
+        <div class="mcd-product-selling">{{selling}}</div>
+        <div class="mcd-product-details">
+          <div class="mcd-detail-row">
+            <span class="mcd-detail-label">所需积分</span>
+            <span class="mcd-detail-value mcd-points">{{point}} 积分</span>
+          </div>
+          <div class="mcd-detail-row">
+            <span class="mcd-detail-label">兑换时间</span>
+            <span class="mcd-detail-value">{{upTime}} 至 {{downTime}}</span>
+          </div>
+        </div>
+      </div>
+      <div class="mcd-product-action">
+        {{#canRedeem}}
+        <button class="mcd-btn mcd-btn-primary" data-action="redeem_product" data-params='{"skuId": {{skuId}}, "spuName": "{{spuName}}", "point": {{point}}}'>
+          立即兑换
+        </button>
+        {{/canRedeem}}
+        {{^canRedeem}}
+        <span class="mcd-btn mcd-btn-disabled" title="积分不足">积分不足</span>
+        {{/canRedeem}}
+      </div>
+    </div>
+    {{/result.products}}
+    
+    {{^result.products}}
+    <div class="mcd-empty-state">
+      <div class="mcd-empty-icon">🎁</div>
+      <div class="mcd-empty-text">暂无可兑换商品</div>
+    </div>
+    {{/result.products}}
+  </div>
+  
+  <div class="mcp-card-footer">
+    <span class="mcd-footer-info">
+      {{#result.userPoints}}
+      当前积分: <strong>{{result.userPoints}}</strong> 积分
+      {{/result.userPoints}}
+    </span>
+    <a href="https://www.mcdonalds.com.cn" target="_blank" class="mcd-link">前往麦当劳官网 →</a>
+  </div>
+</div>

@@ -1,0 +1,59 @@
+<div class="mcp-card mcp-card-mcd mcp-card-meals">
+  <div class="mcp-card-header">
+    <span class="mcp-card-title">🍔 麦当劳餐品列表</span>
+    <span class="mcp-card-store">{{result.storeName}}</span>
+  </div>
+  
+  <div class="mcp-card-body">
+    {{#result.categories}}
+    <div class="mcd-meal-category">
+      <div class="mcd-category-header">
+        <h3 class="mcd-category-name">{{name}}</h3>
+        <span class="mcd-category-count">{{meals.length}} 款</span>
+      </div>
+      
+      <div class="mcd-meal-list">
+        {{#meals}}
+        <div class="mcd-meal-item">
+          <div class="mcd-meal-info">
+            <div class="mcd-meal-name">{{mealName}}</div>
+            {{#tags}}
+            <div class="mcd-meal-tags">
+              {{#.}}<span class="mcd-tag">{{.}}</span>{{/.}}
+            </div>
+            {{/tags}}
+          </div>
+          <div class="mcd-meal-action">
+            {{#price}}
+            <span class="mcd-meal-price">¥{{price}}</span>
+            {{/price}}
+            <button class="mcd-btn mcd-btn-primary" 
+                    data-action="view_meal_detail" 
+                    data-params='{"code": "{{code}}", "name": "{{mealName}}", "price": "{{price}}"}'>
+              查看详情
+            </button>
+          </div>
+        </div>
+        {{/meals}}
+      </div>
+    </div>
+    {{/result.categories}}
+    
+    {{^result.categories}}
+    <div class="mcd-empty-state">
+      <div class="mcd-empty-icon">🍟</div>
+      <div class="mcd-empty-text">暂无餐品信息</div>
+    </div>
+    {{/result.categories}}
+  </div>
+  
+  <div class="mcp-card-footer">
+    <span class="mcd-footer-info">
+      门店编码: {{result.storeCode}}
+      {{#result.datetime}} | 更新时间: {{result.datetime}}{{/result.datetime}}
+    </span>
+    <button class="mcd-btn mcd-btn-secondary" data-action="calculate_price" data-params='{"storeCode": "{{result.storeCode}}"}'>
+      计算价格
+    </button>
+  </div>
+</div>
