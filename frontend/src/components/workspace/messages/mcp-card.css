@@ -1,7 +1,11 @@
 .mcp-card {
   border-radius: 0.75rem;
   border: 1px solid var(--border, #e5e7eb);
-  background: linear-gradient(135deg, var(--card, #ffffff) 0%, var(--muted, #f8fafc) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--card, #ffffff) 0%,
+    var(--muted, #f8fafc) 100%
+  );
   padding: 1rem;
   font-size: 0.875rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -121,7 +125,7 @@
   .mcp-card-details {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .mcp-temp-value {
     font-size: 2rem;
   }

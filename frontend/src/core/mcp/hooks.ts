@@ -55,9 +55,13 @@ export function useMCPToolTemplates() {
     const result: Record<string, MCPToolTemplate> = {};
     if (!config?.mcp_servers) return result;
 
-    for (const [serverName, serverConfig] of Object.entries(config.mcp_servers)) {
+    for (const [serverName, serverConfig] of Object.entries(
+      config.mcp_servers,
+    )) {
       if (serverConfig.tools) {
-        for (const [toolName, toolConfig] of Object.entries(serverConfig.tools)) {
+        for (const [toolName, toolConfig] of Object.entries(
+          serverConfig.tools,
+        )) {
           result[toolName] = {
             card_title: toolConfig.card_title,
             icon: toolConfig.icon,
@@ -88,7 +92,9 @@ export function useMCPToolTemplates() {
         return templateCache.get(cacheKey)!;
       }
       try {
-        const response = await fetch(`/api/mcp/templates/${template.tool_name}`);
+        const response = await fetch(
+          `/api/mcp/templates/${template.tool_name}`,
+        );
         if (!response.ok) {
           throw new Error(`Failed to load template: ${template.tool_name}`);
         }
@@ -97,7 +103,10 @@ export function useMCPToolTemplates() {
         templateCache.set(cacheKey, content);
         return content;
       } catch (error) {
-        console.error(`Error loading template for ${template.tool_name}:`, error);
+        console.error(
+          `Error loading template for ${template.tool_name}:`,
+          error,
+        );
         return "";
       }
     },

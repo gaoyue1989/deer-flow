@@ -344,15 +344,15 @@
   .mcd-detail-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .mcd-points-value {
     font-size: 2rem;
   }
-  
+
   .mcd-product-item {
     flex-direction: column;
   }
-  
+
   .mcd-product-image {
     width: 100%;
     height: 120px;
@@ -461,7 +461,7 @@
     align-items: flex-start;
     gap: 0.5rem;
   }
-  
+
   .mcd-meal-action {
     width: 100%;
     justify-content: space-between;

@@ -219,7 +219,7 @@ async def get_mcp_tool_template(tool_name: str) -> dict:
         if not path.exists():
             raise HTTPException(status_code=404, detail=f"Template file not found: {template_path}")
 
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             template_content = f.read()
 
         return {"content": template_content}
