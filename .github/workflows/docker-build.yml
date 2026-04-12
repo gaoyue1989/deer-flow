@@ -197,7 +197,7 @@ jobs:
             const perPage = 100;
 
             while (true) {
-              const response = await github.request(`GET /repos/${owner}/${repo}/packages/container/${packageName}/versions`, {
+              const response = await github.request(`GET /user/packages/container/${packageName}/versions`, {
                 per_page: perPage,
                 page: page,
               });
@@ -225,7 +225,7 @@ jobs:
 
             for (const version of toDelete) {
               try {
-                await github.request(`DELETE /repos/${owner}/${repo}/packages/container/${packageName}/versions/${version.id}`);
+                await github.request(`DELETE /user/packages/container/${packageName}/versions/${version.id}`);
                 console.log(`Deleted version ${version.id} (created: ${version.created_at})`);
               } catch (err) {
                 console.error(`Failed to delete version ${version.id}: ${err.message}`);
