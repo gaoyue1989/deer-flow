@@ -192,21 +192,29 @@ jobs:
 
             console.log(`Cleaning up ${packageName} images, keeping latest ${keepCount} untagged versions`);
 
-            const allVersions = [];
-            let page = 1;
-            const perPage = 100;
+            let allVersions = [];
+            try {
+              let page = 1;
+              const perPage = 100;
 
-            while (true) {
-              const response = await github.request(`GET /user/packages/container/${packageName}/versions`, {
-                per_page: perPage,
-                page: page,
-              });
+              while (true) {
+                const response = await github.request(`GET /user/packages/container/${packageName}/versions`, {
+                  per_page: perPage,
+                  page: page,
+                });
 
-              const versions = response.data;
-              if (versions.length === 0) break;
-              allVersions.push(...versions);
-              if (versions.length < perPage) break;
-              page++;
+                const versions = response.data;
+                if (versions.length === 0) break;
+                allVersions.push(...versions);
+                if (versions.length < perPage) break;
+                page++;
+              }
+            } catch (err) {
+              if (err.status === 404) {
+                console.log(`Package '${packageName}' not found, skipping cleanup`);
+                return;
+              }
+              throw err;
             }
 
             console.log(`Found ${allVersions.length} total versions`);
