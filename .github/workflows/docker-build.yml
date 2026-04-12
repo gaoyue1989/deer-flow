@@ -140,7 +140,7 @@ jobs:
           BACKEND_PKG=$(echo "${{ env.BACKEND_IMAGE_NAME }}" | cut -d'/' -f2)
           FRONTEND_PKG=$(echo "${{ env.FRONTEND_IMAGE_NAME }}" | cut -d'/' -f2)
           PROVISIONER_PKG=$(echo "${{ env.PROVISIONER_IMAGE_NAME }}" | cut -d'/' -f2)
-          
+
           # Set backend package to public
           echo "Setting $BACKEND_PKG to public..."
           curl -X PATCH \
@@ -148,7 +148,7 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/user/packages/container/$BACKEND_PKG \
             -d '{"visibility":"public"}' || echo "Failed to set backend package visibility"
-          
+
           # Set frontend package to public
           echo "Setting $FRONTEND_PKG to public..."
           curl -X PATCH \
@@ -156,7 +156,7 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/user/packages/container/$FRONTEND_PKG \
             -d '{"visibility":"public"}' || echo "Failed to set frontend package visibility"
-          
+
           # Set provisioner package to public
           echo "Setting $PROVISIONER_PKG to public..."
           curl -X PATCH \
@@ -164,5 +164,84 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/user/packages/container/$PROVISIONER_PKG \
             -d '{"visibility":"public"}' || echo "Failed to set provisioner package visibility"
-          
-          echo "✅ All packages set to public visibility"
+
+          echo "All packages set to public visibility"
+
+  cleanup-untagged-images:
+    needs: build-and-push
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        package: [backend, frontend, provisioner]
+      fail-fast: false
+    steps:
+      - name: Delete old untagged images
+        uses: actions/github-script@v7
+        env:
+          PACKAGE_NAME: ${{ matrix.package }}
+          KEEP_COUNT: 15
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const packageName = process.env.PACKAGE_NAME;
+            const keepCount = parseInt(process.env.KEEP_COUNT, 10);
+
+            console.log(`Cleaning up ${packageName} images, keeping latest ${keepCount} untagged versions`);
+
+            const allVersions = [];
+            let page = 1;
+            const perPage = 100;
+
+            while (true) {
+              const { data: versions } = await github.rest.packages.getAllPackageVersionsForPackageOwnedByRepo({
+                owner,
+                repo,
+                package_type: 'container',
+                package_name: packageName,
+                per_page: perPage,
+                page: page,
+              });
+
+              if (versions.length === 0) break;
+              allVersions.push(...versions);
+              if (versions.length < perPage) break;
+              page++;
+            }
+
+            console.log(`Found ${allVersions.length} total versions`);
+
+            const untaggedVersions = allVersions.filter(v => {
+              const tags = v.metadata?.container?.tags || [];
+              return tags.length === 0 || tags.every(t => !t.startsWith('v'));
+            });
+
+            console.log(`Found ${untaggedVersions.length} untagged versions`);
+
+            untaggedVersions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            const toDelete = untaggedVersions.slice(keepCount);
+            console.log(`Will delete ${toDelete.length} old untagged versions`);
+
+            for (const version of toDelete) {
+              try {
+                await github.request('DELETE /repos/{owner}/{repo}/packages/container/{package_name}/versions/{version_id}', {
+                  owner,
+                  repo,
+                  package_name: packageName,
+                  version_id: version.id,
+                });
+                console.log(`Deleted version ${version.id} (created: ${version.created_at})`);
+              } catch (err) {
+                console.error(`Failed to delete version ${version.id}: ${err.message}`);
+              }
+            }
+
+            if (toDelete.length === 0) {
+              console.log('No versions to delete');
+            } else {
+              console.log(`Successfully deleted ${toDelete.length} old untagged versions`);
+            }
