@@ -693,3 +693,124 @@ def test_get_available_tools_includes_invoke_acp_agent_when_agents_configured(mo
     assert "invoke_acp_agent" in [tool.name for tool in tools]
 
     load_acp_config_from_dict({})
+
+
+@pytest.mark.anyio
+async def test_invoke_acp_agent_http_mode_calls_remote_service(monkeypatch):
+    """HTTP mode: agent with url should use HTTP client instead of stdio subprocess."""
+    captured: dict[str, object] = {}
+
+    class DummyHTTPClient:
+        def __init__(self, base_url: str) -> None:
+            captured["url"] = base_url
+
+        async def create_session(self, agent: str = "build", directory: str = "/tmp") -> str:
+            captured["create_session"] = {"agent": agent, "directory": directory}
+            return "http-session-123"
+
+        async def send_message(self, session_id: str, text: str, agent: str = "build") -> str:
+            captured["send_message"] = {"session_id": session_id, "text": text, "agent": agent}
+            return "HTTP agent response"
+
+    monkeypatch.setattr(
+        "deerflow.tools.builtins.invoke_acp_agent_tool._OpenCodeHTTPClient",
+        DummyHTTPClient,
+    )
+
+    tool = build_invoke_acp_agent_tool(
+        {
+            "opencode": ACPAgentConfig(
+                url="http://localhost:3020",
+                description="OpenCode remote ACP agent",
+            )
+        }
+    )
+
+    result = await tool.coroutine(agent="opencode", prompt="Create a hello world script")
+
+    assert result == "HTTP agent response"
+    assert captured["url"] == "http://localhost:3020"
+    assert captured["create_session"] == {"agent": "build", "directory": "/tmp"}
+    assert captured["send_message"] == {
+        "session_id": "http-session-123",
+        "text": "Create a hello world script",
+        "agent": "build",
+    }
+
+
+@pytest.mark.anyio
+async def test_invoke_acp_agent_http_mode_error_handling(monkeypatch):
+    """HTTP mode: connection errors should return user-friendly error message."""
+
+    class DummyHTTPClient:
+        def __init__(self, base_url: str) -> None:
+            pass
+
+        async def create_session(self, agent: str = "build", directory: str = "/tmp") -> str:
+            raise ConnectionError("Connection refused")
+
+    monkeypatch.setattr(
+        "deerflow.tools.builtins.invoke_acp_agent_tool._OpenCodeHTTPClient",
+        DummyHTTPClient,
+    )
+
+    tool = build_invoke_acp_agent_tool(
+        {
+            "opencode": ACPAgentConfig(
+                url="http://unreachable-host:9999",
+                description="Unreachable ACP agent",
+            )
+        }
+    )
+
+    result = await tool.coroutine(agent="opencode", prompt="Do something")
+
+    assert "Error invoking ACP agent 'opencode'" in result
+    assert "http://unreachable-host:9999" in result
+
+
+@pytest.mark.anyio
+async def test_invoke_acp_agent_http_mode_description_includes_url(monkeypatch):
+    """HTTP mode agent description should be included in tool description."""
+    tool = build_invoke_acp_agent_tool(
+        {
+            "opencode": ACPAgentConfig(
+                url="http://localhost:3020",
+                description="OpenCode remote ACP agent for coding tasks",
+            )
+        }
+    )
+
+    assert "- opencode: OpenCode remote ACP agent for coding tasks" in tool.description
+    assert "invoke_acp_agent" == tool.name
+
+
+def test_get_available_tools_includes_http_acp_agent(monkeypatch):
+    """HTTP mode ACP agents should also be included in available tools."""
+    from deerflow.config.acp_config import load_acp_config_from_dict
+
+    load_acp_config_from_dict(
+        {
+            "opencode": {
+                "url": "http://localhost:3020",
+                "description": "OpenCode remote ACP",
+            }
+        }
+    )
+
+    fake_config = SimpleNamespace(
+        tools=[],
+        models=[],
+        tool_search=SimpleNamespace(enabled=False),
+        get_model_config=lambda name: None,
+    )
+    monkeypatch.setattr("deerflow.tools.tools.get_app_config", lambda: fake_config)
+    monkeypatch.setattr(
+        "deerflow.config.extensions_config.ExtensionsConfig.from_file",
+        classmethod(lambda cls: ExtensionsConfig(mcp_servers={}, skills={})),
+    )
+
+    tools = get_available_tools(include_mcp=True, subagent_enabled=False)
+    assert "invoke_acp_agent" in [tool.name for tool in tools]
+
+    load_acp_config_from_dict({})

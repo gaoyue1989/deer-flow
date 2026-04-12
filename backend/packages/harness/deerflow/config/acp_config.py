@@ -3,7 +3,7 @@
 import logging
 from collections.abc import Mapping
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,12 @@ class ACPAgentConfig(BaseModel):
         ),
     )
     url: str | None = Field(default=None, description="Remote ACP service URL (e.g. http://localhost:3020). When set, uses HTTP REST API instead of stdio subprocess.")
+
+    @model_validator(mode="after")
+    def _validate_command_or_url(self) -> "ACPAgentConfig":
+        if not self.command and not self.url:
+            raise ValueError("Either 'command' (for stdio mode) or 'url' (for HTTP mode) must be provided")
+        return self
 
 
 _acp_agents: dict[str, ACPAgentConfig] = {}
