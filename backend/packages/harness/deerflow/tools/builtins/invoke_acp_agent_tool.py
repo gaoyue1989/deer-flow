@@ -203,12 +203,12 @@ def build_invoke_acp_agent_tool(agents: dict) -> BaseTool:
 
         agent_config = _agents[agent]
 
-        # HTTP mode: use remote OpenCode ACP service
-        if agent_config.url:
-            return await _invoke_http(agent, agent_config, prompt)
+        # stdio mode takes precedence when command is set
+        if agent_config.command:
+            return await _invoke_stdio(agent, agent_config, prompt, config)
 
-        # stdio mode: use local subprocess
-        return await _invoke_stdio(agent, agent_config, prompt, config)
+        # HTTP mode: use remote OpenCode ACP service
+        return await _invoke_http(agent, agent_config, prompt, config)
 
     return StructuredTool.from_function(
         name="invoke_acp_agent",
@@ -218,17 +218,27 @@ def build_invoke_acp_agent_tool(agents: dict) -> BaseTool:
     )
 
 
-async def _invoke_http(agent: str, agent_config: Any, prompt: str) -> str:
+async def _invoke_http(agent: str, agent_config: Any, prompt: str, config: Any) -> str:
     """Invoke ACP agent via remote HTTP REST API."""
     url = agent_config.url
-    logger.info("Invoking ACP agent '%s' via HTTP at %s", agent, url)
+    thread_id: str | None = ((config or {}).get("configurable") or {}).get("thread_id")
+    directory = _get_work_dir(thread_id)
+
+    # Resolve remote agent name: prefer model hint, fall back to agent name
+    remote_agent = agent_config.model or agent
+
+    logger.info(
+        "Invoking ACP agent '%s' via HTTP at %s using remote agent '%s'",
+        agent,
+        url,
+        remote_agent,
+    )
 
     try:
         client = _OpenCodeHTTPClient(url)
-        directory = "/tmp"
-        session_id = await client.create_session(agent="build", directory=directory)
+        session_id = await client.create_session(agent=remote_agent, directory=directory)
         logger.info("Created session %s for ACP agent '%s'", session_id, agent)
-        result = await client.send_message(session_id, prompt, agent="build")
+        result = await client.send_message(session_id, prompt, agent=remote_agent)
         logger.info("ACP agent '%s' returned %d characters", agent, len(result))
         return result
     except Exception as e:
