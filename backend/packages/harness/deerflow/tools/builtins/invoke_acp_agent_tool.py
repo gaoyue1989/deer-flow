@@ -13,23 +13,34 @@ logger = logging.getLogger(__name__)
 
 
 class _OpenCodeHTTPClient:
-    """HTTP client for remote OpenCode ACP service."""
+    """HTTP client for remote OpenCode ACP service with connection pooling."""
 
     def __init__(self, base_url: str) -> None:
         self.base_url = base_url.rstrip("/")
+        self._client: Any = None
+
+    async def _get_client(self) -> Any:
+        if self._client is None:
+            import httpx
+
+            self._client = httpx.AsyncClient(timeout=120.0)
+        return self._client
+
+    async def close(self) -> None:
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
 
     async def _request(self, method: str, path: str, data: dict | None = None) -> dict:
-        import httpx
-
+        client = await self._get_client()
         url = f"{self.base_url}{path}"
         headers = {"Content-Type": "application/json"}
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            if method == "GET":
-                resp = await client.get(url, headers=headers)
-            else:
-                resp = await client.post(url, headers=headers, json=data)
-            resp.raise_for_status()
-            return resp.json()
+        if method == "GET":
+            resp = await client.get(url, headers=headers)
+        else:
+            resp = await client.post(url, headers=headers, json=data)
+        resp.raise_for_status()
+        return resp.json()
 
     async def create_session(self, agent: str = "build", directory: str = "/tmp") -> str:
         result = await self._request("POST", "/session", {"agent": agent, "directory": directory})
@@ -43,6 +54,12 @@ class _OpenCodeHTTPClient:
         )
         text_parts = [p for p in result.get("parts", []) if p.get("type") == "text"]
         return "".join(p.get("text", "") for p in text_parts) or "(no response)"
+
+    async def delete_session(self, session_id: str) -> None:
+        try:
+            await self._request("DELETE", f"/session/{session_id}")
+        except Exception as e:
+            logger.warning("Failed to delete remote session %s: %s", session_id, e)
 
 
 class _InvokeACPAgentInput(BaseModel):
@@ -234,8 +251,9 @@ async def _invoke_http(agent: str, agent_config: Any, prompt: str, config: Any) 
         remote_agent,
     )
 
+    client = _OpenCodeHTTPClient(url)
+    session_id: str | None = None
     try:
-        client = _OpenCodeHTTPClient(url)
         session_id = await client.create_session(agent=remote_agent, directory=directory)
         logger.info("Created session %s for ACP agent '%s'", session_id, agent)
         result = await client.send_message(session_id, prompt, agent=remote_agent)
@@ -244,6 +262,10 @@ async def _invoke_http(agent: str, agent_config: Any, prompt: str, config: Any) 
     except Exception as e:
         logger.error("HTTP ACP agent '%s' invocation failed: %s", agent, e)
         return f"Error invoking ACP agent '{agent}' via {url}: {e}"
+    finally:
+        if session_id:
+            await client.delete_session(session_id)
+        await client.close()
 
 
 async def _invoke_stdio(agent: str, agent_config: Any, prompt: str, config: Any) -> str:

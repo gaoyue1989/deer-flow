@@ -716,6 +716,12 @@ async def test_invoke_acp_agent_http_mode_calls_remote_service(monkeypatch, tmp_
             captured["send_message"] = {"session_id": session_id, "text": text, "agent": agent}
             return "HTTP agent response"
 
+        async def delete_session(self, session_id: str) -> None:
+            captured["delete_session"] = session_id
+
+        async def close(self) -> None:
+            captured["close_called"] = True
+
     monkeypatch.setattr(
         "deerflow.tools.builtins.invoke_acp_agent_tool._OpenCodeHTTPClient",
         DummyHTTPClient,
@@ -741,6 +747,8 @@ async def test_invoke_acp_agent_http_mode_calls_remote_service(monkeypatch, tmp_
         "text": "Create a hello world script",
         "agent": "opencode",
     }
+    assert captured["delete_session"] == "http-session-123"
+    assert captured["close_called"] is True
 
 
 @pytest.mark.anyio
@@ -763,6 +771,12 @@ async def test_invoke_acp_agent_http_mode_uses_model_as_remote_agent(monkeypatch
         async def send_message(self, session_id: str, text: str, agent: str = "build") -> str:
             captured["send_message_agent"] = agent
             return "ok"
+
+        async def delete_session(self, session_id: str) -> None:
+            pass
+
+        async def close(self) -> None:
+            pass
 
     monkeypatch.setattr(
         "deerflow.tools.builtins.invoke_acp_agent_tool._OpenCodeHTTPClient",
@@ -804,6 +818,12 @@ async def test_invoke_acp_agent_http_mode_uses_per_thread_workspace(monkeypatch,
 
         async def send_message(self, session_id: str, text: str, agent: str = "build") -> str:
             return "ok"
+
+        async def delete_session(self, session_id: str) -> None:
+            pass
+
+        async def close(self) -> None:
+            pass
 
     monkeypatch.setattr(
         "deerflow.tools.builtins.invoke_acp_agent_tool._OpenCodeHTTPClient",
@@ -853,6 +873,12 @@ async def test_invoke_acp_agent_stdio_mode_takes_precedence_over_http(monkeypatc
 
         async def send_message(self, session_id: str, text: str, agent: str = "build") -> str:
             return "http response"
+
+        async def delete_session(self, session_id: str) -> None:
+            pass
+
+        async def close(self) -> None:
+            pass
 
     monkeypatch.setattr(
         "deerflow.tools.builtins.invoke_acp_agent_tool._OpenCodeHTTPClient",
@@ -957,6 +983,12 @@ async def test_invoke_acp_agent_http_mode_error_handling(monkeypatch, tmp_path):
 
         async def create_session(self, agent: str = "build", directory: str = "/tmp") -> str:
             raise ConnectionError("Connection refused")
+
+        async def delete_session(self, session_id: str) -> None:
+            pass
+
+        async def close(self) -> None:
+            pass
 
     monkeypatch.setattr(
         "deerflow.tools.builtins.invoke_acp_agent_tool._OpenCodeHTTPClient",
