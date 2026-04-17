@@ -345,15 +345,16 @@ class MemoryUpdater:
         self,
         messages: list[Any],
         agent_name: str | None,
-        correction_detected: bool,
-        reinforcement_detected: bool,
+        user_id: str | None = None,
+        correction_detected: bool = False,
+        reinforcement_detected: bool = False,
     ) -> tuple[dict[str, Any], str] | None:
         """Load memory and build the update prompt for a conversation."""
         config = get_memory_config()
         if not config.enabled or not messages:
             return None
 
-        current_memory = get_memory_data(agent_name)
+        current_memory = get_memory_data(agent_name, user_id)
         conversation_text = format_conversation_for_update(messages)
         if not conversation_text.strip():
             return None
@@ -375,6 +376,7 @@ class MemoryUpdater:
         response_content: Any,
         thread_id: str | None,
         agent_name: str | None,
+        user_id: str | None = None,
     ) -> bool:
         """Parse the model response, apply updates, and persist memory."""
         response_text = _extract_text(response_content).strip()
@@ -388,13 +390,14 @@ class MemoryUpdater:
         # cannot corrupt the still-cached original object reference.
         updated_memory = self._apply_updates(copy.deepcopy(current_memory), update_data, thread_id)
         updated_memory = _strip_upload_mentions_from_memory(updated_memory)
-        return get_memory_storage().save(updated_memory, agent_name)
+        return get_memory_storage().save(updated_memory, agent_name, user_id)
 
     async def aupdate_memory(
         self,
         messages: list[Any],
         thread_id: str | None = None,
         agent_name: str | None = None,
+        user_id: str | None = None,
         correction_detected: bool = False,
         reinforcement_detected: bool = False,
     ) -> bool:
@@ -404,6 +407,7 @@ class MemoryUpdater:
                 self._prepare_update_prompt,
                 messages=messages,
                 agent_name=agent_name,
+                user_id=user_id,
                 correction_detected=correction_detected,
                 reinforcement_detected=reinforcement_detected,
             )
@@ -419,6 +423,7 @@ class MemoryUpdater:
                 response_content=response.content,
                 thread_id=thread_id,
                 agent_name=agent_name,
+                user_id=user_id,
             )
         except json.JSONDecodeError as e:
             logger.warning("Failed to parse LLM response for memory update: %s", e)
@@ -449,78 +454,16 @@ class MemoryUpdater:
         Returns:
             True if update was successful, False otherwise.
         """
-        config = get_memory_config()
-        if not config.enabled:
-            return False
-
-        if not messages:
-            return False
-
-        try:
-            # Get current memory
-            current_memory = get_memory_data(agent_name, user_id)
-
-            # Format conversation for prompt
-            conversation_text = format_conversation_for_update(messages)
-
-            if not conversation_text.strip():
-                return False
-
-            # Build prompt
-            correction_hint = ""
-            if correction_detected:
-                correction_hint = (
-                    "IMPORTANT: Explicit correction signals were detected in this conversation. "
-                    "Pay special attention to what the agent got wrong, what the user corrected, "
-                    "and record the correct approach as a fact with category "
-                    '"correction" and confidence >= 0.95 when appropriate.'
-                )
-            if reinforcement_detected:
-                reinforcement_hint = (
-                    "IMPORTANT: Positive reinforcement signals were detected in this conversation. "
-                    "The user explicitly confirmed the agent's approach was correct or helpful. "
-                    "Record the confirmed approach, style, or preference as a fact with category "
-                    '"preference" or "behavior" and confidence >= 0.9 when appropriate.'
-                )
-                correction_hint = (correction_hint + "\n" + reinforcement_hint).strip() if correction_hint else reinforcement_hint
-
-            prompt = MEMORY_UPDATE_PROMPT.format(
-                current_memory=json.dumps(current_memory, indent=2),
-                conversation=conversation_text,
-                correction_hint=correction_hint,
+        return _run_async_update_sync(
+            self.aupdate_memory(
+                messages=messages,
+                thread_id=thread_id,
+                agent_name=agent_name,
+                user_id=user_id,
+                correction_detected=correction_detected,
+                reinforcement_detected=reinforcement_detected,
             )
-
-            # Call LLM
-            model = self._get_model()
-            response = model.invoke(prompt)
-            response_text = _extract_text(response.content).strip()
-
-            # Parse response
-            # Remove markdown code blocks if present
-            if response_text.startswith("```"):
-                lines = response_text.split("\n")
-                response_text = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
-
-            update_data = json.loads(response_text)
-
-            # Apply updates
-            updated_memory = self._apply_updates(current_memory, update_data, thread_id)
-
-            # Strip file-upload mentions from all summaries before saving.
-            # Uploaded files are session-scoped and won't exist in future sessions,
-            # so recording upload events in long-term memory causes the agent to
-            # try (and fail) to locate those files in subsequent conversations.
-            updated_memory = _strip_upload_mentions_from_memory(updated_memory)
-
-            # Save
-            return get_memory_storage().save(updated_memory, agent_name, user_id)
-
-        except json.JSONDecodeError as e:
-            logger.warning("Failed to parse LLM response for memory update: %s", e)
-            return False
-        except Exception as e:
-            logger.exception("Memory update failed: %s", e)
-            return False
+        )
 
     def _apply_updates(
         self,

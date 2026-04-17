@@ -51,13 +51,21 @@ def test_upload_files_skips_acquire_when_thread_data_is_mounted(tmp_path):
     provider = MagicMock()
     provider.uses_thread_data_mounts = True
 
+    # Create a mock request with user_id in state
+    mock_request = Mock(spec=Request)
+    mock_request.state.user_id = "default"
+    mock_store = Mock()
+    mock_store.aget = AsyncMock(return_value=None)
+    mock_request.app = Mock()
+    mock_request.app.state.store = mock_store
+
     with (
         patch.object(uploads, "get_uploads_dir", return_value=thread_uploads_dir),
         patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
         patch.object(uploads, "get_sandbox_provider", return_value=provider),
     ):
         file = UploadFile(filename="notes.txt", file=BytesIO(b"hello uploads"))
-        result = asyncio.run(uploads.upload_files("thread-mounted", files=[file]))
+        result = asyncio.run(uploads.upload_files("thread-mounted", files=[file], request=mock_request))
 
     assert result.success is True
     assert (thread_uploads_dir / "notes.txt").read_bytes() == b"hello uploads"

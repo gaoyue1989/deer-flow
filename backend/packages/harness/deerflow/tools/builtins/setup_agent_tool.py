@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 @tool
 def setup_agent(
-    name: str,
     soul: str,
     description: str,
     runtime: ToolRuntime,
@@ -24,7 +23,6 @@ def setup_agent(
     """Setup the custom DeerFlow agent.
 
     Args:
-        name: Unique name for the agent (letters, digits, hyphens only).
         soul: Full SOUL.md content defining the agent's personality and behavior.
         description: One-line description of what the agent does.
     """
@@ -36,8 +34,8 @@ def setup_agent(
     if runtime.context:
         user_id = runtime.context.get("user_id")
 
-    # Normalize agent name
-    agent_name = name.strip().lower().replace("_", "-")
+    # Get agent_name from runtime context
+    agent_name: str | None = runtime.context.get("agent_name") if runtime.context else None
     agent_dir = None
 
     try:
