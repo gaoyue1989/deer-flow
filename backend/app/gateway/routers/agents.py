@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.gateway.middleware.user_context import get_user_id_from_request
+from deerflow.config.agents_api_config import get_agents_api_config
 from deerflow.config.agents_config import (
     AgentConfig,
     filter_agents_by_user,
@@ -81,6 +82,15 @@ def _normalize_agent_name(name: str) -> str:
     return name.lower()
 
 
+def _require_agents_api_enabled() -> None:
+    """Reject access unless the custom-agent management API is explicitly enabled."""
+    if not get_agents_api_config().enabled:
+        raise HTTPException(
+            status_code=403,
+            detail=("Custom-agent management API is disabled. Set agents_api.enabled=true to expose agent and user-profile routes over HTTP."),
+        )
+
+
 def _check_agent_ownership(agent_dir, request: Request) -> str:
     """Verify agent ownership and return the current user_id.
 
@@ -131,6 +141,8 @@ async def list_agents(request: Request) -> AgentsListResponse:
     Returns:
         List of all custom agents with their metadata and soul content.
     """
+    _require_agents_api_enabled()
+
     try:
         user_id = get_user_id_from_request(request)
         all_agents = list_custom_agents()
@@ -158,6 +170,7 @@ async def check_agent_name(name: str) -> dict:
     Raises:
         HTTPException: 422 if the name is invalid.
     """
+    _require_agents_api_enabled()
     _validate_agent_name(name)
     normalized = _normalize_agent_name(name)
     available = not get_paths().agent_dir(normalized).exists()
@@ -182,6 +195,7 @@ async def get_agent(name: str, request: Request) -> AgentResponse:
     Raises:
         HTTPException: 404 if agent not found, 403 if agent belongs to another user.
     """
+    _require_agents_api_enabled()
     _validate_agent_name(name)
     name = _normalize_agent_name(name)
 
@@ -222,6 +236,7 @@ async def create_agent_endpoint(body: AgentCreateRequest, request: Request) -> A
     Raises:
         HTTPException: 409 if agent already exists, 422 if name is invalid.
     """
+    _require_agents_api_enabled()
     _validate_agent_name(body.name)
     normalized_name = _normalize_agent_name(body.name)
 
@@ -296,6 +311,7 @@ async def update_agent(name: str, body: AgentUpdateRequest, request: Request) ->
     Raises:
         HTTPException: 404 if agent not found.
     """
+    _require_agents_api_enabled()
     _validate_agent_name(name)
     name = _normalize_agent_name(name)
 
@@ -374,6 +390,8 @@ async def get_user_profile(request: Request) -> UserProfileResponse:
     Returns:
         UserProfileResponse with content=None if profile does not exist yet.
     """
+    _require_agents_api_enabled()
+
     try:
         user_id = get_user_id_from_request(request)
         paths = get_paths()
@@ -405,6 +423,8 @@ async def update_user_profile(request: UserProfileUpdateRequest, http_request: R
     Returns:
         UserProfileResponse with the saved content.
     """
+    _require_agents_api_enabled()
+
     try:
         user_id = get_user_id_from_request(http_request)
         paths = get_paths()
@@ -434,6 +454,7 @@ async def delete_agent(name: str, request: Request) -> None:
     Raises:
         HTTPException: 404 if agent not found, 403 if agent belongs to another user.
     """
+    _require_agents_api_enabled()
     _validate_agent_name(name)
     name = _normalize_agent_name(name)
 
