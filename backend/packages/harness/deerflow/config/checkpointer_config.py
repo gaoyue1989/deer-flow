@@ -25,6 +25,13 @@ class CheckpointerConfig(BaseModel):
         "For postgres, use a DSN like 'postgresql://user:pass@localhost:5432/db'. "
         "For mysql, use a DSN like 'mysql://user:pass@localhost:3306/deerflow'.",
     )
+    migration_enabled: bool = Field(
+        default=True,
+        description="Enable background migration of threads from checkpointer to Store. "
+        "When True, the search endpoint will scan the checkpointer for threads not yet in the Store "
+        "and migrate them asynchronously. Disable this if all threads are created through the Gateway "
+        "or if the checkpointer contains a large number of threads that would slow down search.",
+    )
 
 
 # Global configuration instance — None means no checkpointer is configured.

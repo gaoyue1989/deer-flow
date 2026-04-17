@@ -761,9 +761,9 @@ skill_evolution:
 #   type: memory
 #
 # SQLite (file-based, single-process):
-checkpointer:
-  type: sqlite
-  connection_string: checkpoints.db
+# checkpointer:
+#   type: sqlite
+#   connection_string: checkpoints.db
 #
 # PostgreSQL (multi-process, production):
 # checkpointer:
@@ -774,6 +774,7 @@ checkpointer:
 # checkpointer:
 #   type: mysql
 #   connection_string: mysql://user:password@localhost:3306/deerflow
+#   migration_enabled: false  # Set to false to disable background thread migration
 
 # ============================================================================
 # IM Channels Configuration

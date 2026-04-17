@@ -12,6 +12,7 @@ matching the LangGraph Platform wire format expected by the
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid
@@ -32,6 +33,9 @@ from deerflow.runtime import serialize_channel_values
 
 THREADS_NS: tuple[str, ...] = ("threads",)
 """Namespace used by the Store for thread metadata records."""
+
+_migration_lock = asyncio.Lock()
+"""Global lock to prevent concurrent background migrations from blocking the DB connection."""
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/threads", tags=["threads"])
@@ -243,6 +247,63 @@ def _check_thread_ownership(request: Request, thread_id: str, record: dict | Non
     return thread_user_id
 
 
+async def _background_migrate_threads(
+    checkpointer,
+    store,
+    existing_thread_ids: set[str],
+    target_user_id: str | None = None,
+) -> None:
+    """Background task to migrate unmigrated threads from checkpointer to Store.
+
+    Runs asynchronously without blocking the search response.  Discovers
+    threads that exist in the checkpointer but not in the Store and writes
+    them so future searches skip this step.
+
+    Uses a global lock to prevent concurrent migrations from exhausting the
+    single DB connection and blocking other requests (e.g. history).
+    """
+    if _migration_lock.locked():
+        logger.debug("Background migration already running, skipping")
+        return
+
+    async with _migration_lock:
+        # Yield to let pending history requests acquire the connection first
+        await asyncio.sleep(0)
+
+        try:
+            async for checkpoint_tuple in checkpointer.alist(None):
+                cfg = getattr(checkpoint_tuple, "config", {})
+                thread_id = cfg.get("configurable", {}).get("thread_id")
+                if not thread_id or thread_id in existing_thread_ids:
+                    continue
+
+                # Skip sub-graph checkpoints
+                if cfg.get("configurable", {}).get("checkpoint_ns", ""):
+                    continue
+
+                ckpt_meta = getattr(checkpoint_tuple, "metadata", {}) or {}
+                user_meta = {k: v for k, v in ckpt_meta.items() if k not in ("created_at", "updated_at", "step", "source", "writes", "parents")}
+
+                # Apply user filter during migration to avoid migrating other users' threads
+                if target_user_id is not None:
+                    thread_user_id = user_meta.get("user_id")
+                    if thread_user_id and thread_user_id != target_user_id:
+                        continue
+
+                checkpoint_data = getattr(checkpoint_tuple, "checkpoint", {}) or {}
+                channel_values = checkpoint_data.get("channel_values", {})
+                ckpt_values = {}
+                if title := channel_values.get("title"):
+                    ckpt_values["title"] = title
+
+                try:
+                    await _store_upsert(store, thread_id, metadata=user_meta, values=ckpt_values or None)
+                except Exception:
+                    logger.debug("Failed to migrate thread %s to store (non-fatal)", thread_id)
+        except Exception:
+            logger.debug("Background checkpointer migration failed (non-fatal)", exc_info=True)
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -360,18 +421,13 @@ async def create_thread(body: ThreadCreateRequest, request: Request) -> ThreadRe
 async def search_threads(body: ThreadSearchRequest, request: Request) -> list[ThreadResponse]:
     """Search and list threads.
 
-    Two-phase approach:
+    Single-phase Store lookup with optional background checkpointer migration.
 
-    **Phase 1 — Store (fast path, O(threads))**: returns threads that were
-    created or run through this Gateway.  Store records are tiny metadata
-    dicts so fetching all of them at once is cheap.
+    **Phase 1 — Store (fast path)**: returns threads from the Store,
+    which is the primary source of truth for thread metadata.
 
-    **Phase 2 — Checkpointer supplement (lazy migration)**: threads that
-    were created directly by LangGraph Server (and therefore absent from the
-    Store) are discovered here by iterating the shared checkpointer.  Any
-    newly found thread is immediately written to the Store so that the next
-    search skips Phase 2 for that thread — the Store converges to a full
-    index over time without a one-shot migration job.
+    **Background migration** (configurable): when enabled, any threads not
+    yet in the Store are discovered and migrated asynchronously.
     """
     store = get_store(request)
     checkpointer = get_checkpointer(request)
@@ -381,11 +437,35 @@ async def search_threads(body: ThreadSearchRequest, request: Request) -> list[Th
     # -----------------------------------------------------------------------
     merged: dict[str, ThreadResponse] = {}
 
+    # Pre-compute user filter for downgrading to Store layer
+    user_id = get_user_id_from_request(request)
+    from deerflow.agents.thread_metadata import get_user_id_from_metadata
+
+    config_enabled = True  # multi-tenant is enabled in config
+    if config_enabled and user_id is not None:
+        target_user_id = user_id
+    elif config_enabled:
+        from deerflow.config.multi_tenant_config import get_multi_tenant_config
+
+        target_user_id = get_multi_tenant_config().default_user_id
+    else:
+        target_user_id = None
+
+    # Build filter to push down to Store layer (reduces data transfer)
+    store_filter: dict[str, Any] = {}
+    if target_user_id is not None:
+        store_filter["metadata.user_id"] = target_user_id
+    for k, v in body.metadata.items():
+        if k != "user_id":
+            store_filter[f"metadata.{k}"] = v
+    if body.status:
+        store_filter["status"] = body.status
+
     if store is not None:
         try:
-            items = await store.asearch(THREADS_NS, limit=10_000)
+            items = await store.asearch(THREADS_NS, filter=store_filter if store_filter else None, limit=10_000)
         except Exception:
-            logger.warning("Store search failed — falling back to checkpointer only", exc_info=True)
+            logger.warning("Store search failed", exc_info=True)
             items = []
 
         for item in items:
@@ -400,62 +480,26 @@ async def search_threads(body: ThreadSearchRequest, request: Request) -> list[Th
             )
 
     # -----------------------------------------------------------------------
-    # Phase 2: Checkpointer supplement
-    # Discovers threads not yet in the Store (e.g. created by LangGraph
-    # Server) and lazily migrates them so future searches skip this phase.
+    # Background migration: discover unmigrated threads asynchronously
+    # Only runs when migration_enabled is True in checkpointer config
     # -----------------------------------------------------------------------
-    try:
-        async for checkpoint_tuple in checkpointer.alist(None):
-            cfg = getattr(checkpoint_tuple, "config", {})
-            thread_id = cfg.get("configurable", {}).get("thread_id")
-            if not thread_id or thread_id in merged:
-                continue
+    if store is not None and checkpointer is not None:
+        from deerflow.config.checkpointer_config import get_checkpointer_config
 
-            # Skip sub-graph checkpoints (checkpoint_ns is non-empty for those)
-            if cfg.get("configurable", {}).get("checkpoint_ns", ""):
-                continue
+        cp_config = get_checkpointer_config()
+        migration_enabled = cp_config.migration_enabled if cp_config else True
 
-            ckpt_meta = getattr(checkpoint_tuple, "metadata", {}) or {}
-            # Strip LangGraph internal keys from the user-visible metadata dict
-            user_meta = {k: v for k, v in ckpt_meta.items() if k not in ("created_at", "updated_at", "step", "source", "writes", "parents")}
-
-            # Extract state values (title) from the checkpoint's channel_values
-            checkpoint_data = getattr(checkpoint_tuple, "checkpoint", {}) or {}
-            channel_values = checkpoint_data.get("channel_values", {})
-            ckpt_values = {}
-            if title := channel_values.get("title"):
-                ckpt_values["title"] = title
-
-            thread_resp = ThreadResponse(
-                thread_id=thread_id,
-                status=_derive_thread_status(checkpoint_tuple),
-                created_at=str(ckpt_meta.get("created_at", "")),
-                updated_at=str(ckpt_meta.get("updated_at", ckpt_meta.get("created_at", ""))),
-                metadata=user_meta,
-                values=ckpt_values,
-            )
-            merged[thread_id] = thread_resp
-
-            # Lazy migration — write to Store so the next search finds it there
-            if store is not None:
-                try:
-                    await _store_upsert(store, thread_id, metadata=user_meta, values=ckpt_values or None)
-                except Exception:
-                    logger.debug("Failed to migrate thread %s to store (non-fatal)", thread_id)
-    except Exception:
-        logger.exception("Checkpointer scan failed during thread search")
-        # Don't raise — return whatever was collected from Store + partial scan
+        if migration_enabled:
+            asyncio.create_task(_background_migrate_threads(checkpointer, store, set(merged.keys()), target_user_id))
+        else:
+            logger.debug("Background migration disabled by config, skipping checkpointer scan")
 
     # -----------------------------------------------------------------------
-    # Phase 3: Filter → sort → paginate
+    # Phase 2: Filter → sort → paginate
     # -----------------------------------------------------------------------
     results = list(merged.values())
 
     # Filter by user (multi-tenant isolation)
-    user_id = get_user_id_from_request(request)
-    from deerflow.agents.thread_metadata import get_user_id_from_metadata
-
-    config_enabled = True  # multi-tenant is enabled in config
     if config_enabled and user_id is not None:
         results = [r for r in results if get_user_id_from_metadata(r.metadata) == user_id]
     elif config_enabled:
