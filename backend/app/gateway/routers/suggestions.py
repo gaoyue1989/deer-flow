@@ -103,7 +103,9 @@ async def generate_suggestions(thread_id: str, request: SuggestionsRequest) -> S
         return SuggestionsResponse(suggestions=[])
 
     n = request.n
-    conversation = _format_conversation(request.messages)
+    # Limit context to last 6 messages to reduce LLM latency
+    recent_messages = request.messages[-6:]
+    conversation = _format_conversation(recent_messages)
     if not conversation:
         return SuggestionsResponse(suggestions=[])
 
@@ -121,7 +123,11 @@ async def generate_suggestions(thread_id: str, request: SuggestionsRequest) -> S
 
     try:
         model = create_chat_model(name=request.model_name, thinking_enabled=False)
-        response = await model.ainvoke([SystemMessage(content=system_instruction), HumanMessage(content=user_content)])
+        # Set a 120s timeout for suggestions (much shorter than the default 600s)
+        response = await model.ainvoke(
+            [SystemMessage(content=system_instruction), HumanMessage(content=user_content)],
+            {"request_timeout": 120},
+        )
         raw = _extract_response_text(response.content)
         suggestions = _parse_json_string_list(raw) or []
         cleaned = [s.replace("\n", " ").strip() for s in suggestions if s.strip()]

@@ -7,6 +7,7 @@ import logging
 import threading
 import time
 from collections.abc import Awaitable, Callable
+from concurrent.futures import ThreadPoolExecutor
 from email.utils import parsedate_to_datetime
 from typing import Any, override
 
@@ -23,6 +24,8 @@ from langgraph.errors import GraphBubbleUp
 from deerflow.config import get_app_config
 
 logger = logging.getLogger(__name__)
+
+_thread_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="llm-retry")
 
 _RETRIABLE_STATUS_CODES = {408, 409, 425, 429, 500, 502, 503, 504}
 _BUSY_PATTERNS = (
@@ -218,6 +221,35 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
         request: ModelRequest,
         handler: Callable[[ModelRequest], ModelResponse],
     ) -> ModelCallResult:
+        # Detect if called from an async context (event loop is running).
+        # If so, offload to a thread pool to avoid blocking the event loop
+        # with time.sleep() during retries.
+        try:
+            asyncio.get_running_loop()
+            in_async_context = True
+        except RuntimeError:
+            in_async_context = False
+
+        if in_async_context:
+            return self._run_sync_call_in_thread(request, handler)
+
+        return self._run_sync_call_impl(request, handler)
+
+    def _run_sync_call_in_thread(
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], ModelResponse],
+    ) -> ModelCallResult:
+        """Run sync call in a thread pool to avoid blocking the event loop."""
+        future = _thread_pool.submit(self._run_sync_call_impl, request, handler)
+        return future.result()
+
+    def _run_sync_call_impl(
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], ModelResponse],
+    ) -> ModelCallResult:
+        """Core sync retry logic. Runs in thread pool when called from async context."""
         if self._check_circuit():
             return AIMessage(content=self._build_circuit_breaker_message())
 
@@ -228,7 +260,6 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
                 self._record_success()
                 return response
             except GraphBubbleUp:
-                # Preserve LangGraph control-flow signals (interrupt/pause/resume).
                 with self._circuit_lock:
                     if self._circuit_state == "half_open":
                         self._circuit_probe_in_flight = False
