@@ -170,7 +170,7 @@ async def _async_checkpointer(config) -> AsyncIterator[Checkpointer]:
 
     if config.type == "mysql":
         try:
-            from langgraph.checkpoint.mysql.aio import AIOMySQLSaver
+            from langgraph.checkpoint.mysql.aio import AIOMySQLSaver  # noqa: F401
         except ImportError as exc:
             raise ImportError(MYSQL_INSTALL) from exc
 
