@@ -36,6 +36,83 @@ from deerflow.runtime.store.provider import (
 
 logger = logging.getLogger(__name__)
 
+
+class _PooledMySQLStore:
+    """Wrapper around AIOMySQLStore backed by an aiomysql connection pool.
+
+    Uses a connection pool instead of a single long-lived connection to:
+    - Automatically handle MySQL server idle timeouts (wait_timeout)
+    - Support concurrent store operations without lock contention
+    - Transparently replace stale connections from the pool
+    """
+
+    def __init__(self, conn_string: str, *, minsize: int = 1, maxsize: int = 5):
+        self._conn_string = conn_string
+        self._minsize = minsize
+        self._maxsize = maxsize
+        self._pool = None
+        self._store = None
+
+    async def _create_pool(self):
+        """Create the aiomysql connection pool."""
+        import aiomysql
+        from langgraph.store.mysql.aio import AIOMySQLStore
+
+        params = AIOMySQLStore.parse_conn_string(self._conn_string)
+        self._pool = await aiomysql.create_pool(
+            host=params["host"],
+            user=params["user"],
+            password=params["password"],
+            db=params["db"],
+            port=params["port"],
+            minsize=self._minsize,
+            maxsize=self._maxsize,
+            autocommit=True,
+            pool_recycle=3600,  # Recycle connections every hour
+        )
+        logger.info("MySQL store connection pool created (min=%d, max=%d)", self._minsize, self._maxsize)
+
+    async def _get_store(self):
+        """Get or create the AIOMySQLStore backed by the pool."""
+        if self._store is None:
+            from langgraph.store.mysql.aio import AIOMySQLStore
+
+            self._store = AIOMySQLStore(conn=self._pool)
+            await self._store.setup()
+            logger.info("MySQL store initialized with connection pool")
+        return self._store
+
+    # Store interface — delegate to the store
+    async def aget(self, *args, **kwargs):
+        store = await self._get_store()
+        return await store.aget(*args, **kwargs)
+
+    async def aget_batch(self, *args, **kwargs):
+        store = await self._get_store()
+        return await store.aget_batch(*args, **kwargs)
+
+    async def aput(self, *args, **kwargs):
+        store = await self._get_store()
+        return await store.aput(*args, **kwargs)
+
+    async def adelete(self, *args, **kwargs):
+        store = await self._get_store()
+        return await store.adelete(*args, **kwargs)
+
+    async def asearch(self, *args, **kwargs):
+        store = await self._get_store()
+        return await store.asearch(*args, **kwargs)
+
+    async def aclose(self):
+        """Close the connection pool."""
+        if self._pool is not None:
+            self._pool.close()
+            await self._pool.wait_closed()
+            logger.info("MySQL store connection pool closed")
+            self._pool = None
+            self._store = None
+
+
 # ---------------------------------------------------------------------------
 # Internal backend factory
 # ---------------------------------------------------------------------------
@@ -87,17 +164,21 @@ async def _async_store(config) -> AsyncIterator[BaseStore]:
 
     if config.type == "mysql":
         try:
-            from langgraph.store.mysql.aio import AIOMySQLStore
+            from langgraph.store.mysql.aio import AIOMySQLStore  # noqa: F401
         except ImportError as exc:
             raise ImportError(MYSQL_STORE_INSTALL) from exc
 
         if not config.connection_string:
             raise ValueError(MYSQL_CONN_REQUIRED)
 
-        async with AIOMySQLStore.from_conn_string(config.connection_string) as store:
-            await store.setup()
-            logger.info("Store: using AIOMySQLStore")
+        store = _PooledMySQLStore(config.connection_string)
+        await store._create_pool()
+        await store._get_store()
+        logger.info("Store: using AIOMySQLStore with connection pool")
+        try:
             yield store
+        finally:
+            await store.aclose()
         return
 
     raise ValueError(f"Unknown store backend type: {config.type!r}")
