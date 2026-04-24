@@ -126,7 +126,7 @@ async def generate_suggestions(thread_id: str, request: SuggestionsRequest) -> S
         # Set a 120s timeout for suggestions (much shorter than the default 600s)
         response = await model.ainvoke(
             [SystemMessage(content=system_instruction), HumanMessage(content=user_content)],
-            {"request_timeout": 120},
+            config={"run_name": "suggest_agent", "request_timeout": 120},
         )
         raw = _extract_response_text(response.content)
         suggestions = _parse_json_string_list(raw) or []

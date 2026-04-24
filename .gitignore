@@ -43,6 +43,7 @@ skills/custom/*
 logs/
 log/
 opencode.log
+debug.log
 
 # Local git hooks (keep only on this machine, do not push)
 .githooks/
@@ -58,5 +59,7 @@ web/
 backend/Dockerfile.langgraph
 config.yaml.bak
 .playwright-mcp
+/frontend/test-results/
+/frontend/playwright-report/
 .gstack/
 .worktrees
