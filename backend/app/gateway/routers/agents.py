@@ -254,14 +254,14 @@ async def create_agent_endpoint(body: AgentCreateRequest, request: Request) -> A
 
         # Write config.yaml
         config_data: dict = {"name": normalized_name}
-        if request.description:
-            config_data["description"] = request.description
-        if request.model is not None:
-            config_data["model"] = request.model
-        if request.tool_groups is not None:
-            config_data["tool_groups"] = request.tool_groups
-        if request.skills is not None:
-            config_data["skills"] = request.skills
+        if body.description:
+            config_data["description"] = body.description
+        if body.model is not None:
+            config_data["model"] = body.model
+        if body.tool_groups is not None:
+            config_data["tool_groups"] = body.tool_groups
+        if body.skills is not None:
+            config_data["skills"] = body.skills
 
         config_file = agent_dir / "config.yaml"
         with open(config_file, "w", encoding="utf-8") as f:
@@ -335,25 +335,25 @@ async def update_agent(name: str, body: AgentUpdateRequest, request: Request) ->
         # Update config if any config fields changed
         # Use model_fields_set to distinguish "field omitted" from "explicitly set to null".
         # This is critical for skills where None means "inherit all" (not "don't change").
-        fields_set = request.model_fields_set
+        fields_set = body.model_fields_set
         config_changed = bool(fields_set & {"description", "model", "tool_groups", "skills"})
 
         if config_changed:
             updated: dict = {
                 "name": agent_cfg.name,
-                "description": request.description if "description" in fields_set else agent_cfg.description,
+                "description": body.description if "description" in fields_set else agent_cfg.description,
             }
-            new_model = request.model if "model" in fields_set else agent_cfg.model
+            new_model = body.model if "model" in fields_set else agent_cfg.model
             if new_model is not None:
                 updated["model"] = new_model
 
-            new_tool_groups = request.tool_groups if "tool_groups" in fields_set else agent_cfg.tool_groups
+            new_tool_groups = body.tool_groups if "tool_groups" in fields_set else agent_cfg.tool_groups
             if new_tool_groups is not None:
                 updated["tool_groups"] = new_tool_groups
 
             # skills: None = inherit all, [] = no skills, ["a","b"] = whitelist
             if "skills" in fields_set:
-                new_skills = request.skills
+                new_skills = body.skills
             else:
                 new_skills = agent_cfg.skills
             if new_skills is not None:

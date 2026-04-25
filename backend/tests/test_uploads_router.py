@@ -83,6 +83,13 @@ def test_upload_files_does_not_auto_convert_documents_by_default(tmp_path):
     sandbox = MagicMock()
     provider.get.return_value = sandbox
 
+    mock_request = Mock(spec=Request)
+    mock_request.state.user_id = "default"
+    mock_store = Mock()
+    mock_store.aget = AsyncMock(return_value=None)
+    mock_request.app = Mock()
+    mock_request.app.state.store = mock_store
+
     with (
         patch.object(uploads, "get_uploads_dir", return_value=thread_uploads_dir),
         patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
@@ -91,7 +98,7 @@ def test_upload_files_does_not_auto_convert_documents_by_default(tmp_path):
         patch.object(uploads, "convert_file_to_markdown", AsyncMock()) as convert_mock,
     ):
         file = UploadFile(filename="report.pdf", file=BytesIO(b"pdf-bytes"))
-        result = asyncio.run(uploads.upload_files("thread-local", files=[file]))
+        result = asyncio.run(uploads.upload_files("thread-local", files=[file], request=mock_request))
 
     assert result.success is True
     assert len(result.files) == 1
