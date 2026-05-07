@@ -480,6 +480,55 @@ DELETE /api/threads/{thread_id}/uploads/{filename}
 }
 ```
 
+### Thread Conversation History Sync
+
+Sync external conversation history to a thread. This is useful for cross-agent collaboration, conversation migration, and context sharing.
+
+**Detailed documentation**: See [Sync Messages API](../../docs/api/sync-messages.md) for comprehensive usage guide.
+
+```http
+POST /api/threads/{thread_id}/sync-messages
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "messages": [
+    {"role": "user", "content": "Hello"},
+    {"role": "assistant", "content": "Hi there!"},
+    {"role": "user", "content": "Can you help me?"},
+    {"role": "assistant", "content": "Sure, what do you need?"}
+  ],
+  "source": "external-agent",
+  "metadata": {
+    "original_thread_id": "thread-123"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "thread_id": "abc123",
+  "synced_count": 4,
+  "total_messages": 6
+}
+```
+
+**Features:**
+- Messages are appended to the end of existing conversation
+- Automatic deduplication using LangGraph's `add_messages` reducer
+- Multi-tenant isolation: users can only sync to their own threads
+- Metadata tracking: source, timestamp, and count are recorded in checkpoint
+
+**Error behavior:**
+- `400` if messages array is empty or format is invalid
+- `403` if thread belongs to another user
+- `404` if thread not found
+- `500` if checkpoint operation fails
+
 ### Thread Cleanup
 
 Remove DeerFlow-managed local thread files under `.deer-flow/threads/{thread_id}` after the LangGraph thread itself has been deleted.

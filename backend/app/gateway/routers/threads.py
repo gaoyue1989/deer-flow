@@ -16,7 +16,7 @@ import asyncio
 import logging
 import time
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -125,6 +125,39 @@ class ThreadHistoryRequest(BaseModel):
 
     limit: int = Field(default=10, ge=1, le=100, description="Maximum entries")
     before: str | None = Field(default=None, description="Cursor for pagination")
+
+
+class ExternalMessage(BaseModel):
+    """External message format for synchronization.
+
+    Simple message structure with role and content fields,
+    compatible with common chat APIs and easy to construct.
+    """
+
+    role: Literal["user", "assistant", "system"] = Field(..., description="Message role: user, assistant, or system")
+    content: str = Field(..., description="Message text content")
+
+
+class SyncMessagesRequest(BaseModel):
+    """Request body for syncing external conversation history.
+
+    Allows importing conversation history from external agents or systems
+    into the current thread. Messages are appended to the end of existing
+    messages using LangGraph's add_messages reducer.
+    """
+
+    messages: list[ExternalMessage] = Field(..., description="External messages to sync")
+    source: str | None = Field(default=None, description="Source identifier (e.g., external agent name)")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional sync metadata")
+
+
+class SyncMessagesResponse(BaseModel):
+    """Response model for message synchronization."""
+
+    success: bool = Field(description="Operation success status")
+    thread_id: str = Field(description="Target thread identifier")
+    synced_count: int = Field(description="Number of messages synced in this operation")
+    total_messages: int = Field(description="Total messages in thread after sync")
 
 
 # ---------------------------------------------------------------------------
@@ -805,3 +838,100 @@ async def get_thread_history(thread_id: str, body: ThreadHistoryRequest, request
         raise HTTPException(status_code=500, detail="Failed to get thread history")
 
     return entries
+
+
+@router.post("/{thread_id}/sync-messages", response_model=SyncMessagesResponse)
+async def sync_messages(thread_id: str, body: SyncMessagesRequest, request: Request) -> SyncMessagesResponse:
+    """Sync external conversation history to current thread.
+
+    External messages are appended to the end of existing messages using
+    LangGraph's add_messages reducer, which handles deduplication and ID assignment.
+
+    This endpoint is useful for:
+    - Importing conversation history from external agents
+    - Migrating conversations from other systems
+    - Cross-agent collaboration scenarios
+
+    Args:
+        thread_id: Target thread identifier
+        body: Sync request with external messages and optional metadata
+        request: FastAPI request object
+
+    Returns:
+        SyncMessagesResponse with sync result and message counts
+
+    Raises:
+        HTTPException: 400 if no messages provided or invalid format
+        HTTPException: 403 if thread belongs to another user
+        HTTPException: 404 if thread not found
+        HTTPException: 500 if checkpoint operation fails
+    """
+    store = get_store(request)
+    record = await _store_get(store, thread_id) if store else None
+
+    _check_thread_ownership(request, thread_id, record)
+
+    if not body.messages:
+        raise HTTPException(status_code=400, detail="No messages provided for sync")
+
+    checkpointer = get_checkpointer(request)
+    config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
+
+    try:
+        checkpoint_tuple = await checkpointer.aget_tuple(config)
+    except Exception:
+        logger.exception("Failed to get checkpoint for thread %s", thread_id)
+        raise HTTPException(status_code=500, detail="Failed to read thread state")
+
+    if checkpoint_tuple is None:
+        raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found")
+
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+    from langgraph.graph.message import add_messages
+
+    converted_messages = []
+    for msg in body.messages:
+        if msg.role == "user":
+            converted_messages.append(HumanMessage(content=msg.content))
+        elif msg.role == "assistant":
+            converted_messages.append(AIMessage(content=msg.content))
+        elif msg.role == "system":
+            converted_messages.append(SystemMessage(content=msg.content))
+
+    checkpoint: dict[str, Any] = dict(getattr(checkpoint_tuple, "checkpoint", {}) or {})
+    channel_values: dict[str, Any] = dict(checkpoint.get("channel_values", {}))
+    existing_messages = channel_values.get("messages", [])
+
+    merged_messages = add_messages(existing_messages, converted_messages)
+    channel_values["messages"] = merged_messages
+    checkpoint["channel_values"] = channel_values
+
+    metadata: dict[str, Any] = dict(getattr(checkpoint_tuple, "metadata", {}) or {})
+    metadata["updated_at"] = time.time()
+    metadata["sync_source"] = body.source or "external"
+    metadata["synced_count"] = len(converted_messages)
+    if body.metadata:
+        metadata["sync_metadata"] = body.metadata
+
+    write_config: dict[str, Any] = {
+        "configurable": {
+            "thread_id": thread_id,
+            "checkpoint_ns": "",
+        }
+    }
+
+    try:
+        await checkpointer.aput(write_config, checkpoint, metadata, {})
+    except Exception:
+        logger.exception("Failed to sync messages to thread %s", thread_id)
+        raise HTTPException(status_code=500, detail="Failed to sync messages")
+
+    total_count = len(merged_messages)
+    logger.info("Synced %d messages to thread %s (total: %d, source: %s)", len(converted_messages), thread_id, total_count, body.source or "external")
+
+    return SyncMessagesResponse(
+        success=True,
+        thread_id=thread_id,
+        synced_count=len(converted_messages),
+        total_messages=total_count,
+    )
