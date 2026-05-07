@@ -77,9 +77,7 @@ class TestSyncMessagesRequest:
     def test_valid_request_with_all_fields(self):
         """Test creating a valid request with all fields."""
         messages = [threads.ExternalMessage(role="user", content="Hello")]
-        request = threads.SyncMessagesRequest(
-            messages=messages, source="external-agent", metadata={"original_id": "123"}
-        )
+        request = threads.SyncMessagesRequest(messages=messages, source="external-agent", metadata={"original_id": "123"})
         assert request.source == "external-agent"
         assert request.metadata == {"original_id": "123"}
 
@@ -94,9 +92,7 @@ class TestSyncMessagesResponse:
 
     def test_valid_response(self):
         """Test creating a valid response."""
-        response = threads.SyncMessagesResponse(
-            success=True, thread_id="thread-123", synced_count=4, total_messages=10
-        )
+        response = threads.SyncMessagesResponse(success=True, thread_id="thread-123", synced_count=4, total_messages=10)
         assert response.success is True
         assert response.thread_id == "thread-123"
         assert response.synced_count == 4
@@ -222,9 +218,7 @@ class TestSyncMessagesEndpoint:
         """Test that accessing another user's thread returns 403 error."""
         mock_store = MagicMock()
         mock_store.aget = AsyncMock()
-        mock_store.aget.return_value = MagicMock(
-            value={"thread_id": "thread-123", "metadata": {"user_id": "other-user"}}
-        )
+        mock_store.aget.return_value = MagicMock(value={"thread_id": "thread-123", "metadata": {"user_id": "other-user"}})
 
         mock_request = Mock(spec=Request)
         mock_request.state = Mock()
@@ -246,9 +240,7 @@ class TestSyncMessagesEndpoint:
 
     def test_sync_messages_basic_flow(self, mock_request, mock_checkpointer, mock_store):
         """Test basic sync flow with successful message sync."""
-        mock_store.aget.return_value = MagicMock(
-            value={"thread_id": "thread-123", "metadata": {"user_id": "user-123"}}
-        )
+        mock_store.aget.return_value = MagicMock(value={"thread_id": "thread-123", "metadata": {"user_id": "user-123"}})
 
         mock_checkpoint_tuple = MagicMock()
         mock_checkpoint_tuple.checkpoint = {"channel_values": {"messages": []}}
@@ -282,9 +274,7 @@ class TestSyncMessagesEndpoint:
 
     def test_sync_messages_appends_to_existing(self, mock_request, mock_checkpointer, mock_store):
         """Test that new messages are appended to existing messages."""
-        mock_store.aget.return_value = MagicMock(
-            value={"thread_id": "thread-123", "metadata": {"user_id": "user-123"}}
-        )
+        mock_store.aget.return_value = MagicMock(value={"thread_id": "thread-123", "metadata": {"user_id": "user-123"}})
 
         existing_messages = [HumanMessage(content="Existing message")]
         mock_checkpoint_tuple = MagicMock()
@@ -305,9 +295,7 @@ class TestSyncMessagesEndpoint:
 
     def test_sync_messages_records_metadata(self, mock_request, mock_checkpointer, mock_store):
         """Test that sync metadata is recorded in checkpoint."""
-        mock_store.aget.return_value = MagicMock(
-            value={"thread_id": "thread-123", "metadata": {"user_id": "user-123"}}
-        )
+        mock_store.aget.return_value = MagicMock(value={"thread_id": "thread-123", "metadata": {"user_id": "user-123"}})
 
         mock_checkpoint_tuple = MagicMock()
         mock_checkpoint_tuple.checkpoint = {"channel_values": {"messages": []}}
@@ -335,9 +323,7 @@ class TestSyncMessagesEndpoint:
 
     def test_sync_messages_handles_all_message_types(self, mock_request, mock_checkpointer, mock_store):
         """Test that all message types (user, assistant, system) are handled."""
-        mock_store.aget.return_value = MagicMock(
-            value={"thread_id": "thread-123", "metadata": {"user_id": "user-123"}}
-        )
+        mock_store.aget.return_value = MagicMock(value={"thread_id": "thread-123", "metadata": {"user_id": "user-123"}})
 
         mock_checkpoint_tuple = MagicMock()
         mock_checkpoint_tuple.checkpoint = {"channel_values": {"messages": []}}
